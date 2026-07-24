@@ -7,7 +7,7 @@ const {
   adminRegister,
 } = require("../controllers/userAuthent");
 const userMiddleware = require("../middleware/userMiddleware");
-const adminMiddleware = require("../controllers/adminMiddleware");
+const adminMiddleware = require("../middleware/adminMiddleware");
 
 authRouter.post("/register", register);
 authRouter.post("/login", login);
