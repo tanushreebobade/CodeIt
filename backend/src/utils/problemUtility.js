@@ -48,7 +48,8 @@ const executeCode = async (code, language, stdin = "") => {
 
     return response.data;
   } catch (err) {
-    console.error(err.response?.data || err.message);
+    console.log("Status:", err.response?.status);
+    console.log("Response:", JSON.stringify(err.response?.data, null, 2));
     throw err;
   }
 };

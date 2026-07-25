@@ -9,11 +9,13 @@ const userSchema = new Schema(
       minLength: 3,
       maxLength: 20,
     },
+
     lastName: {
       type: String,
       minLength: 3,
       maxLength: 20,
     },
+
     emailId: {
       type: String,
       required: true,
@@ -22,16 +24,19 @@ const userSchema = new Schema(
       lowercase: true,
       immutable: true,
     },
+
     age: {
       type: Number,
       min: 6,
       max: 80,
     },
+
     role: {
       type: String,
       enum: ["user", "admin"],
       default: "user",
     },
+
     problemSolved: {
       type: [
         {
@@ -41,6 +46,33 @@ const userSchema = new Schema(
       ],
       default: [],
     },
+
+    // Per-problem attempt tracking
+    problemAttempts: [
+      {
+        problemId: {
+          type: Schema.Types.ObjectId,
+          ref: "Problem",
+          required: true,
+        },
+
+        runAttempts: {
+          type: Number,
+          default: 2,
+        },
+
+        submitAttempts: {
+          type: Number,
+          default: 1,
+        },
+
+        solved: {
+          type: Boolean,
+          default: false,
+        },
+      },
+    ],
+
     password: {
       type: String,
       required: true,
@@ -48,7 +80,7 @@ const userSchema = new Schema(
   },
   {
     timestamps: true,
-  },
+  }
 );
 
 const User = mongoose.model("user", userSchema);

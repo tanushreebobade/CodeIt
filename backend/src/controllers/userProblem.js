@@ -95,7 +95,99 @@ const getAllProblem = async (req, res) => {
     });
   }
 };
+
+// Get Problem By ID
+const getProblemById = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const problem = await Problem.findById(id);
+
+    if (!problem) {
+      return res.status(404).json({
+        success: false,
+        message: "Problem not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      problem,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: "Error fetching problem",
+      error: err.message,
+    });
+  }
+};
+
+// Update Problem
+const updateProblem = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const updatedProblem = await Problem.findByIdAndUpdate(
+      id,
+      req.body,
+      {
+        new: true,
+        runValidators: true,
+      }
+    );
+
+    if (!updatedProblem) {
+      return res.status(404).json({
+        success: false,
+        message: "Problem not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Problem updated successfully",
+      problem: updatedProblem,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: "Error updating problem",
+      error: err.message,
+    });
+  }
+};
+
+// Delete Problem
+const deleteProblem = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const deletedProblem = await Problem.findByIdAndDelete(id);
+
+    if (!deletedProblem) {
+      return res.status(404).json({
+        success: false,
+        message: "Problem not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Problem deleted successfully",
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: "Error deleting problem",
+      error: err.message,
+    });
+  }
+};
 module.exports = {
   createProblem,
   getAllProblem,
+  getProblemById,
+  updateProblem,
+  deleteProblem,
 };
