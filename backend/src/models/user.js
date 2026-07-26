@@ -47,7 +47,6 @@ const userSchema = new Schema(
       default: [],
     },
 
-    // Per-problem attempt tracking
     problemAttempts: [
       {
         problemId: {

@@ -1,7 +1,6 @@
 const { executeCode } = require("../utils/problemUtility");
 const Problem = require("../models/problem");
 
-//create problems
 const createProblem = async (req, res) => {
   const {
     title,
@@ -15,9 +14,8 @@ const createProblem = async (req, res) => {
   } = req.body;
 
   try {
-    // Validate all reference solutions
+    // Validate reference solutions against visible and hidden test cases
     for (const { language, completeCode } of referenceSolution) {
-      // Visible Test Cases
       for (const testCase of visibleTestCases) {
         const result = await executeCode(
           completeCode,
@@ -33,7 +31,6 @@ const createProblem = async (req, res) => {
         }
       }
 
-      // Hidden Test Cases
       for (const testCase of hiddenTestCases) {
         const result = await executeCode(
           completeCode,
@@ -78,7 +75,6 @@ const createProblem = async (req, res) => {
   }
 };
 
-//getallprb
 const getAllProblem = async (req, res) => {
   try {
     const problems = await Problem.find().select("_id title difficulty tags");
@@ -96,7 +92,6 @@ const getAllProblem = async (req, res) => {
   }
 };
 
-// Get Problem By ID
 const getProblemById = async (req, res) => {
   const { id } = req.params;
 
@@ -123,7 +118,6 @@ const getProblemById = async (req, res) => {
   }
 };
 
-// Update Problem
 const updateProblem = async (req, res) => {
   const { id } = req.params;
 
@@ -158,7 +152,6 @@ const updateProblem = async (req, res) => {
   }
 };
 
-// Delete Problem
 const deleteProblem = async (req, res) => {
   const { id } = req.params;
 
@@ -184,6 +177,7 @@ const deleteProblem = async (req, res) => {
     });
   }
 };
+
 module.exports = {
   createProblem,
   getAllProblem,

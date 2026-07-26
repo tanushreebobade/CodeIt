@@ -5,10 +5,9 @@ const redisClient = require("../config/redis");
 const userMiddleware = async (req, res, next) => {
   try {
     const { token } = req.cookies;
-    if (!token) throw new Error("Token is not persent");
+    if (!token) throw new Error("Token is missing");
 
     const payload = jwt.verify(token, process.env.JWT_KEY);
-
     const { _id } = payload;
 
     if (!_id) {
@@ -16,17 +15,14 @@ const userMiddleware = async (req, res, next) => {
     }
 
     const result = await User.findById(_id);
-
     if (!result) {
-      throw new Error("User Doesn't Exist");
+      throw new Error("User does not exist");
     }
 
-    const IsBlocked = await redisClient.exists(`token:${token}`);
-
-    if (IsBlocked) throw new Error("Invalid Token");
+    const isBlocked = await redisClient.exists(`token:${token}`);
+    if (isBlocked) throw new Error("Token has been revoked");
 
     req.result = result;
-
     next();
   } catch (err) {
     res.status(401).send("Error: " + err.message);
