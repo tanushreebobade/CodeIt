@@ -42,7 +42,7 @@ const userSchema = new Schema(
       type: [
         {
           type: Schema.Types.ObjectId,
-          ref: "problem",
+          ref: "Problem",
         },
       ],
       default: [],
@@ -83,6 +83,9 @@ const userSchema = new Schema(
   }
 );
 
-const User = mongoose.model("user", userSchema);
+const User = mongoose.models.User || mongoose.model("User", userSchema);
+if (!mongoose.models.user) {
+  mongoose.model("user", userSchema);
+}
 
 module.exports = User;

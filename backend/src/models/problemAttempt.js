@@ -5,13 +5,13 @@ const problemAttemptSchema = new Schema(
   {
     userId: {
       type: Schema.Types.ObjectId,
-      ref: "user",
+      ref: "User",
       required: true,
     },
 
     problemId: {
       type: Schema.Types.ObjectId,
-      ref: "problem",
+      ref: "Problem",
       required: true,
     },
 
@@ -37,4 +37,4 @@ const problemAttemptSchema = new Schema(
 
 problemAttemptSchema.index({ userId: 1, problemId: 1 }, { unique: true });
 
-module.exports = mongoose.model("ProblemAttempt", problemAttemptSchema);
+module.exports = mongoose.models.ProblemAttempt || mongoose.model("ProblemAttempt", problemAttemptSchema);

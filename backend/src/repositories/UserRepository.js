@@ -22,6 +22,13 @@ class UserRepository extends BaseRepository {
       { returnDocument: "after" }
     );
   }
+
+  async getUserProfileWithStats(userId) {
+    return await this.model
+      .findById(userId)
+      .select("-password")
+      .populate("problemSolved", "title difficulty tags");
+  }
 }
 
 module.exports = new UserRepository();

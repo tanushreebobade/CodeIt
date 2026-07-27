@@ -142,6 +142,9 @@ const problemSchema = new Schema(
   },
 );
 
-const Problem = mongoose.model("problem", problemSchema);
+const Problem = mongoose.models.Problem || mongoose.model("Problem", problemSchema);
+if (!mongoose.models.problem) {
+  mongoose.model("problem", problemSchema);
+}
 
 module.exports = Problem;

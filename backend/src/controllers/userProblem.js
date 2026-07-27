@@ -1,6 +1,7 @@
 const { executeCode } = require("../utils/problemUtility");
-const Problem = require("../models/problem");
+const problemRepository = require("../repositories/ProblemRepository");
 
+// Create problem
 const createProblem = async (req, res) => {
   const {
     title,
@@ -47,7 +48,7 @@ const createProblem = async (req, res) => {
       }
     }
 
-    const problem = await Problem.create({
+    const problem = await problemRepository.create({
       title,
       description,
       difficulty,
@@ -75,13 +76,21 @@ const createProblem = async (req, res) => {
   }
 };
 
+// Get all problems with pagination, search, and filters
 const getAllProblem = async (req, res) => {
   try {
-    const problems = await Problem.find().select("_id title difficulty tags");
+    const { page, limit, difficulty, tags, search } = req.query;
+    const result = await problemRepository.findProblemsWithFilters({
+      page,
+      limit,
+      difficulty,
+      tags,
+      search,
+    });
 
     return res.status(200).json({
       success: true,
-      problems,
+      ...result,
     });
   } catch (err) {
     return res.status(500).json({
@@ -92,11 +101,12 @@ const getAllProblem = async (req, res) => {
   }
 };
 
+// Get problem by ID
 const getProblemById = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const problem = await Problem.findById(id);
+    const problem = await problemRepository.findProblemById(id);
 
     if (!problem) {
       return res.status(404).json({
@@ -118,18 +128,12 @@ const getProblemById = async (req, res) => {
   }
 };
 
+// Update problem
 const updateProblem = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const updatedProblem = await Problem.findByIdAndUpdate(
-      id,
-      req.body,
-      {
-        returnDocument: "after",
-        runValidators: true,
-      }
-    );
+    const updatedProblem = await problemRepository.updateById(id, req.body);
 
     if (!updatedProblem) {
       return res.status(404).json({
@@ -152,11 +156,12 @@ const updateProblem = async (req, res) => {
   }
 };
 
+// Delete problem
 const deleteProblem = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const deletedProblem = await Problem.findByIdAndDelete(id);
+    const deletedProblem = await problemRepository.deleteById(id);
 
     if (!deletedProblem) {
       return res.status(404).json({

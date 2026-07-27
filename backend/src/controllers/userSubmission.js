@@ -1,12 +1,12 @@
 const problemRepository = require("../repositories/ProblemRepository");
 const attemptRepository = require("../repositories/AttemptRepository");
+const submissionRepository = require("../repositories/SubmissionRepository");
 const { executeCode } = require("../utils/problemUtility");
 const SubmissionService = require("../services/submission/SubmissionService");
 const { BadRequestError, NotFoundError, ForbiddenError } = require("../errors/AppError");
 const { asyncHandler } = require("../middleware/errorHandler");
 
-
-//run code
+// Run code against visible test cases
 const runCode = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { code, language } = req.body;
@@ -57,7 +57,7 @@ const runCode = asyncHandler(async (req, res) => {
   });
 });
 
-//submit code
+// Submit code against hidden test cases
 const submitCode = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { code, language } = req.body;
@@ -96,7 +96,41 @@ const submitCode = asyncHandler(async (req, res) => {
   });
 });
 
+// Get user submission history (paginated & filtered)
+const getUserSubmissions = asyncHandler(async (req, res) => {
+  const user = req.result;
+  const { problemId, status, page, limit } = req.query;
+
+  const result = await submissionRepository.getUserSubmissionsPaginated(
+    user._id,
+    { problemId, status, page, limit }
+  );
+
+  return res.status(200).json({
+    success: true,
+    ...result,
+  });
+});
+
+// Get submission detail by ID
+const getSubmissionById = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const user = req.result;
+
+  const submission = await submissionRepository.getSubmissionWithDetails(id, user._id);
+  if (!submission) {
+    throw new NotFoundError("Submission not found");
+  }
+
+  return res.status(200).json({
+    success: true,
+    submission,
+  });
+});
+
 module.exports = {
   runCode,
   submitCode,
+  getUserSubmissions,
+  getSubmissionById,
 };

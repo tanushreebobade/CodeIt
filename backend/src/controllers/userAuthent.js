@@ -1,9 +1,12 @@
 const User = require("../models/user");
+const userRepository = require("../repositories/UserRepository");
+const submissionRepository = require("../repositories/SubmissionRepository");
 const validate = require("../utils/validator");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const redisClient = require("../config/redis");
-//register
+
+// Register user
 const register = async (req, res) => {
   try {
     validate(req.body);
@@ -31,7 +34,8 @@ const register = async (req, res) => {
     res.status(400).send("Error: " + err.message);
   }
 };
-//login
+
+// Login user
 const login = async (req, res) => {
   try {
     const { emailId, password } = req.body;
@@ -67,7 +71,8 @@ const login = async (req, res) => {
     res.status(401).send("Error: " + err.message);
   }
 };
-//logout
+
+// Logout user
 const logout = async (req, res) => {
   try {
     const { token } = req.cookies;
@@ -83,7 +88,8 @@ const logout = async (req, res) => {
     res.status(500).send("Error: " + err);
   }
 };
-//admine register
+
+// Admin register
 const adminRegister = async (req, res) => {
   try {
     validate(req.body);
@@ -113,9 +119,52 @@ const adminRegister = async (req, res) => {
   }
 };
 
+// Get user profile & statistics
+const getProfile = async (req, res) => {
+  try {
+    const userId = req.result._id;
+    const user = await userRepository.getUserProfileWithStats(userId);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    const stats = await submissionRepository.getSubmissionStatsByUser(userId);
+
+    const difficultyCounts = { easy: 0, medium: 0, hard: 0 };
+    if (user.problemSolved && Array.isArray(user.problemSolved)) {
+      user.problemSolved.forEach((problem) => {
+        if (problem.difficulty && difficultyCounts[problem.difficulty] !== undefined) {
+          difficultyCounts[problem.difficulty]++;
+        }
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      user,
+      stats: {
+        ...stats,
+        totalSolved: user.problemSolved.length,
+        difficultyCounts,
+      },
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: "Error fetching user profile",
+      error: err.message,
+    });
+  }
+};
+
 module.exports = {
   register,
   login,
   logout,
   adminRegister,
+  getProfile,
 };
