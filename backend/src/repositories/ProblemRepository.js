@@ -10,8 +10,8 @@ class ProblemRepository extends BaseRepository {
     return await this.findById(id);
   }
 
-  async findProblemsWithFilters({ difficulty, tags, search, page = 1, limit = 10 }) {
-    const filter = {};
+  async findProblemsWithFilters({ difficulty, tags, companyTags, search, page = 1, limit = 10 }) {
+    const filter = { status: "published" };
 
     if (difficulty) {
       filter.difficulty = difficulty.toLowerCase();
@@ -20,6 +20,13 @@ class ProblemRepository extends BaseRepository {
     if (tags) {
       const tagArray = typeof tags === "string" ? tags.split(",") : tags;
       filter.tags = { $in: tagArray };
+    }
+
+    if (companyTags) {
+      const companyArray = typeof companyTags === "string" 
+        ? companyTags.split(",").map(c => c.trim().toLowerCase()) 
+        : companyTags;
+      filter.companyTags = { $in: companyArray };
     }
 
     if (search) {
@@ -33,7 +40,7 @@ class ProblemRepository extends BaseRepository {
     const total = await this.count(filter);
     const problems = await this.model
       .find(filter)
-      .select("_id title difficulty tags acceptedCount submissionCount isPremium createdAt")
+      .select("_id title difficulty tags companyTags acceptedCount submissionCount isPremium createdAt")
       .skip(skip)
       .limit(limitNum)
       .sort({ createdAt: -1 });

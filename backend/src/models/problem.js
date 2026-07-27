@@ -48,6 +48,40 @@ const problemSchema = new Schema(
       },
     ],
 
+    companyTags: [
+      {
+        type: String,
+        trim: true,
+        lowercase: true,
+      },
+    ],
+
+    hints: [
+      {
+        type: String,
+        trim: true,
+      },
+    ],
+
+    editorial: {
+      type: String,
+      default: "",
+    },
+
+    examples: [
+      {
+        input: { type: String, required: true },
+        output: { type: String, required: true },
+        explanation: { type: String, default: "" },
+      },
+    ],
+
+    status: {
+      type: String,
+      enum: ["draft", "published"],
+      default: "published",
+    },
+
     constraints: {
       type: String,
       default: "",

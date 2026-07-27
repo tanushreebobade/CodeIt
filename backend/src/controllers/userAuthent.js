@@ -1,169 +1,136 @@
-const User = require("../models/user");
+const authService = require("../services/auth/AuthService");
 const userRepository = require("../repositories/UserRepository");
 const submissionRepository = require("../repositories/SubmissionRepository");
-const validate = require("../utils/validator");
-const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
-const redisClient = require("../config/redis");
+const { asyncHandler } = require("../middleware/errorHandler");
 
 // Register user
-const register = async (req, res) => {
-  try {
-    validate(req.body);
-    const { firstName, emailId, password } = req.body;
-    req.body.password = await bcrypt.hash(password, 10);
-    req.body.role = "user";
+const register = asyncHandler(async (req, res) => {
+  const { accessToken, refreshToken } = await authService.registerUser(req.body);
 
-    const user = await User.create(req.body);
+  res.cookie("token", accessToken, {
+    httpOnly: true,
+    maxAge: 15 * 60 * 1000,
+  });
 
-    const token = jwt.sign(
-      { _id: user._id, emailId: emailId, role: "user" },
-      process.env.JWT_KEY,
-      { expiresIn: 60 * 60 },
-    );
+  res.cookie("refreshToken", refreshToken, {
+    httpOnly: true,
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
 
-    res.cookie("token", token, {
-      httpOnly: true,
-      maxAge: 60 * 60 * 1000,
-    });
-
-    res.status(201).json({
-      message: "Registration successful",
-    });
-  } catch (err) {
-    res.status(400).send("Error: " + err.message);
-  }
-};
+  return res.status(201).json({
+    success: true,
+    message: "Registration successful",
+    token: accessToken,
+  });
+});
 
 // Login user
-const login = async (req, res) => {
-  try {
-    const { emailId, password } = req.body;
-    if (!emailId || !password) {
-      throw new Error("Invalid Credentials");
-    }
+const login = asyncHandler(async (req, res) => {
+  const { emailId, password } = req.body;
+  const { accessToken, refreshToken } = await authService.loginUser(emailId, password);
 
-    const user = await User.findOne({ emailId });
-    if (!user) {
-      throw new Error("Invalid Credentials");
-    }
+  res.cookie("token", accessToken, {
+    httpOnly: true,
+    maxAge: 15 * 60 * 1000,
+  });
 
-    const match = await bcrypt.compare(password, user.password);
-    if (!match) {
-      throw new Error("Invalid Credentials");
-    }
+  res.cookie("refreshToken", refreshToken, {
+    httpOnly: true,
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
 
-    const token = jwt.sign(
-      { _id: user._id, emailId: emailId, role: user.role },
-      process.env.JWT_KEY,
-      { expiresIn: 60 * 60 },
-    );
+  return res.status(200).json({
+    success: true,
+    message: "Login Successfully",
+    token: accessToken,
+  });
+});
 
-    res.cookie("token", token, {
-      httpOnly: true,
-      maxAge: 60 * 60 * 1000,
-    });
+// Refresh Access Token
+const refreshToken = asyncHandler(async (req, res) => {
+  const token = req.cookies.refreshToken || req.body.refreshToken;
+  const { accessToken } = await authService.refreshAccessToken(token);
 
-    res.status(200).json({
-      message: "Login Successfully",
-    });
-  } catch (err) {
-    res.status(401).send("Error: " + err.message);
-  }
-};
+  res.cookie("token", accessToken, {
+    httpOnly: true,
+    maxAge: 15 * 60 * 1000,
+  });
+
+  return res.status(200).json({
+    success: true,
+    token: accessToken,
+  });
+});
 
 // Logout user
-const logout = async (req, res) => {
-  try {
-    const { token } = req.cookies;
-    const payload = jwt.decode(token);
+const logout = asyncHandler(async (req, res) => {
+  const { token } = req.cookies;
+  await authService.logoutUser(token);
 
-    // Blacklist token in Redis until it expires
-    await redisClient.set(`token:${token}`, "Blocked");
-    await redisClient.expireAt(`token:${token}`, payload.exp);
+  res.cookie("token", null, { expires: new Date(Date.now()) });
+  res.cookie("refreshToken", null, { expires: new Date(Date.now()) });
+  return res.status(200).send("Logged Out Succesfully");
+});
 
-    res.cookie("token", null, { expires: new Date(Date.now()) });
-    res.send("Logged Out Succesfully");
-  } catch (err) {
-    res.status(500).send("Error: " + err);
-  }
-};
+// Register Admin
+const adminRegister = asyncHandler(async (req, res) => {
+  const { accessToken, refreshToken } = await authService.registerAdmin(req.body);
 
-// Admin register
-const adminRegister = async (req, res) => {
-  try {
-    validate(req.body);
-    const { firstName, emailId, password } = req.body;
+  res.cookie("token", accessToken, {
+    httpOnly: true,
+    maxAge: 15 * 60 * 1000,
+  });
 
-    req.body.password = await bcrypt.hash(password, 10);
+  res.cookie("refreshToken", refreshToken, {
+    httpOnly: true,
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
 
-    const user = await User.create({
-      ...req.body,
-      role: "admin",
-    });
-
-    const token = jwt.sign(
-      {
-        _id: user._id,
-        emailId: user.emailId,
-        role: user.role,
-      },
-      process.env.JWT_KEY,
-      { expiresIn: "1h" },
-    );
-
-    res.cookie("token", token, { maxAge: 60 * 60 * 1000 });
-    res.status(201).send("User Registered Successfully");
-  } catch (err) {
-    res.status(400).send("Error: " + err);
-  }
-};
+  return res.status(201).json({
+    success: true,
+    message: "User Registered Successfully",
+    token: accessToken,
+  });
+});
 
 // Get user profile & statistics
-const getProfile = async (req, res) => {
-  try {
-    const userId = req.result._id;
-    const user = await userRepository.getUserProfileWithStats(userId);
+const getProfile = asyncHandler(async (req, res) => {
+  const userId = req.result._id;
+  const user = await userRepository.getUserProfileWithStats(userId);
 
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
-    }
-
-    const stats = await submissionRepository.getSubmissionStatsByUser(userId);
-
-    const difficultyCounts = { easy: 0, medium: 0, hard: 0 };
-    if (user.problemSolved && Array.isArray(user.problemSolved)) {
-      user.problemSolved.forEach((problem) => {
-        if (problem.difficulty && difficultyCounts[problem.difficulty] !== undefined) {
-          difficultyCounts[problem.difficulty]++;
-        }
-      });
-    }
-
-    return res.status(200).json({
-      success: true,
-      user,
-      stats: {
-        ...stats,
-        totalSolved: user.problemSolved.length,
-        difficultyCounts,
-      },
-    });
-  } catch (err) {
-    return res.status(500).json({
+  if (!user) {
+    return res.status(404).json({
       success: false,
-      message: "Error fetching user profile",
-      error: err.message,
+      message: "User not found",
     });
   }
-};
+
+  const stats = await submissionRepository.getSubmissionStatsByUser(userId);
+
+  const difficultyCounts = { easy: 0, medium: 0, hard: 0 };
+  if (user.problemSolved && Array.isArray(user.problemSolved)) {
+    user.problemSolved.forEach((problem) => {
+      if (problem.difficulty && difficultyCounts[problem.difficulty] !== undefined) {
+        difficultyCounts[problem.difficulty]++;
+      }
+    });
+  }
+
+  return res.status(200).json({
+    success: true,
+    user,
+    stats: {
+      ...stats,
+      totalSolved: user.problemSolved.length,
+      difficultyCounts,
+    },
+  });
+});
 
 module.exports = {
   register,
   login,
+  refreshToken,
   logout,
   adminRegister,
   getProfile,
