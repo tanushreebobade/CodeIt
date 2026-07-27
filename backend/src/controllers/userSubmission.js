@@ -1,11 +1,12 @@
-const Problem = require("../models/problem");
-const ProblemAttempt = require("../models/problemAttempt");
-const Submission = require("../models/submission");
+const problemRepository = require("../repositories/ProblemRepository");
+const attemptRepository = require("../repositories/AttemptRepository");
 const { executeCode } = require("../utils/problemUtility");
 const SubmissionService = require("../services/submission/SubmissionService");
 const { BadRequestError, NotFoundError, ForbiddenError } = require("../errors/AppError");
 const { asyncHandler } = require("../middleware/errorHandler");
 
+
+//run code
 const runCode = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { code, language } = req.body;
@@ -14,30 +15,15 @@ const runCode = asyncHandler(async (req, res) => {
     throw new BadRequestError("Code and language are required");
   }
 
-  const problem = await Problem.findById(id);
+  const problem = await problemRepository.findProblemById(id);
   if (!problem) {
     throw new NotFoundError("Problem not found");
   }
 
   const user = req.result;
 
-  // Find or initialize attempt record
-  let attempt = await ProblemAttempt.findOne({
-    userId: user._id,
-    problemId: id,
-  });
+  const attempt = await attemptRepository.findOrCreateAttempt(user._id, id);
 
-  if (!attempt) {
-    attempt = await ProblemAttempt.create({
-      userId: user._id,
-      problemId: id,
-      runAttempts: 2,
-      submitAttempts: 1,
-      solved: false,
-    });
-  }
-
-  // Check attempt limits
   if (attempt.solved) {
     throw new ForbiddenError("Problem already solved.");
   }
@@ -46,12 +32,10 @@ const runCode = asyncHandler(async (req, res) => {
     throw new ForbiddenError("No run attempts remaining.");
   }
 
-  attempt.runAttempts--;
-  await attempt.save();
+  const updatedAttempt = await attemptRepository.decrementRunAttempt(user._id, id);
 
-  // Run visible test cases
+  // Execute against visible test cases for quick feedback
   const results = [];
-
   for (const testCase of problem.visibleTestCases) {
     const result = await executeCode(code, language, testCase.input);
     const formattedOutput = result.output?.trim() || "";
@@ -67,12 +51,13 @@ const runCode = asyncHandler(async (req, res) => {
 
   return res.status(200).json({
     success: true,
-    runAttemptsLeft: attempt.runAttempts,
-    submitAttemptsLeft: attempt.submitAttempts,
+    runAttemptsLeft: updatedAttempt.runAttempts,
+    submitAttemptsLeft: updatedAttempt.submitAttempts,
     results,
   });
 });
 
+//submit code
 const submitCode = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { code, language } = req.body;
@@ -81,67 +66,33 @@ const submitCode = asyncHandler(async (req, res) => {
     throw new BadRequestError("Code and language are required");
   }
 
-  const problem = await Problem.findById(id);
+  const problem = await problemRepository.findProblemById(id);
   if (!problem) {
     throw new NotFoundError("Problem not found");
   }
 
   const user = req.result;
 
-  // Find or initialize attempt record
-  let attempt = await ProblemAttempt.findOne({
-    userId: user._id,
-    problemId: id,
-  });
-
-  if (!attempt) {
-    attempt = await ProblemAttempt.create({
-      userId: user._id,
-      problemId: id,
-      runAttempts: 2,
-      submitAttempts: 1,
-      solved: false,
-    });
-  }
+  const attempt = await attemptRepository.findOrCreateAttempt(user._id, id);
 
   if (attempt.submitAttempts <= 0) {
     throw new ForbiddenError("No submit attempts remaining.");
   }
 
-  attempt.submitAttempts--;
-
-  // Evaluate code against hidden test cases
-  const evalResult = await SubmissionService.evaluateSubmission(
-    code,
-    language,
-    problem.hiddenTestCases
-  );
-
-  if (evalResult.status === "Accepted") {
-    attempt.solved = true;
-  }
-
-  await attempt.save();
-
-  // Record submission history
-  const submission = await Submission.create({
+  // Full submission evaluation against hidden test cases
+  const { submission, attempt: updatedAttempt } = await SubmissionService.processSubmission({
     userId: user._id,
     problemId: id,
     code,
     language,
-    status: evalResult.status,
-    runtime: evalResult.runtime,
-    memory: evalResult.memory,
-    errorMessage: evalResult.errorMessage,
-    testCasesPassed: evalResult.passedCount,
-    totalTestCases: problem.hiddenTestCases.length,
+    hiddenTestCases: problem.hiddenTestCases,
   });
 
   return res.status(200).json({
     success: true,
     submission,
-    submitAttemptsLeft: attempt.submitAttempts,
-    solved: attempt.solved,
+    submitAttemptsLeft: updatedAttempt.submitAttempts,
+    solved: updatedAttempt.solved,
   });
 });
 

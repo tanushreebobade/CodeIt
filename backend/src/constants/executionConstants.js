@@ -7,7 +7,7 @@ const EXECUTION_STATUS = Object.freeze({
   TIME_LIMIT_EXCEEDED: "Time Limit Exceeded",
   MEMORY_LIMIT_EXCEEDED: "Memory Limit Exceeded",
 });
-
+//languages 
 const SUPPORTED_LANGUAGES = Object.freeze({
   CPP: "cpp",
   C: "c",
@@ -16,6 +16,7 @@ const SUPPORTED_LANGUAGES = Object.freeze({
   PYTHON: "python",
 });
 
+//version
 const JDOODLE_LANGUAGE_MAP = Object.freeze({
   cpp: { language: "cpp17", versionIndex: "2" },
   "c++": { language: "cpp17", versionIndex: "2" },

@@ -1,3 +1,4 @@
+// Centralized error handling middleware
 const { AppError } = require("../errors/AppError");
 
 const errorHandler = (err, req, res, next) => {

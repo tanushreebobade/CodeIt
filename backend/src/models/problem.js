@@ -1,3 +1,4 @@
+// Problem model for storing problem details and test cases
 const mongoose = require("mongoose");
 const { Schema } = mongoose;
 

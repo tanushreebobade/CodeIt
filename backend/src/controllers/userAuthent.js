@@ -3,7 +3,7 @@ const validate = require("../utils/validator");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const redisClient = require("../config/redis");
-
+//register
 const register = async (req, res) => {
   try {
     validate(req.body);
@@ -31,7 +31,7 @@ const register = async (req, res) => {
     res.status(400).send("Error: " + err.message);
   }
 };
-
+//login
 const login = async (req, res) => {
   try {
     const { emailId, password } = req.body;
@@ -67,7 +67,7 @@ const login = async (req, res) => {
     res.status(401).send("Error: " + err.message);
   }
 };
-
+//logout
 const logout = async (req, res) => {
   try {
     const { token } = req.cookies;
@@ -83,7 +83,7 @@ const logout = async (req, res) => {
     res.status(500).send("Error: " + err);
   }
 };
-
+//admine register
 const adminRegister = async (req, res) => {
   try {
     validate(req.body);
