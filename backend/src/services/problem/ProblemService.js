@@ -49,7 +49,7 @@ class ProblemService {
     return await problemRepository.create({
       title,
       description,
-      difficulty,
+      difficulty: difficulty.toLowerCase(),
       tags,
       companyTags,
       hints,

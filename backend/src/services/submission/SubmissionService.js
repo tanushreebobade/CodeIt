@@ -3,6 +3,7 @@ const submissionRepository = require("../../repositories/SubmissionRepository");
 const attemptRepository = require("../../repositories/AttemptRepository");
 const problemRepository = require("../../repositories/ProblemRepository");
 const userRepository = require("../../repositories/UserRepository");
+const leaderboardService = require("../leaderboard/LeaderboardService");
 
 const evaluateSubmission = async (code, language, hiddenTestCases) => {
   const results = [];
@@ -142,6 +143,10 @@ const processSubmission = async ({ userId, problemId, code, language, hiddenTest
   if (isAccepted) {
     attempt = await attemptRepository.markSolved(userId, problemId);
     await userRepository.addSolvedProblem(userId, problemId);
+    // Update Redis Global Leaderboard score asynchronously
+    leaderboardService.updateUserScore(userId, 1).catch((err) => {
+      console.error("Leaderboard score update async error:", err.message);
+    });
   }
 
   // Update overall problem submission stats

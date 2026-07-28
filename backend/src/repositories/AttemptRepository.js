@@ -44,7 +44,7 @@ class AttemptRepository extends BaseRepository {
     return await this.model.findOneAndUpdate(
       { userId, problemId },
       { solved: true },
-      { returnDocument: "after", upsert: true }
+      { new: true, upsert: true }
     );
   }
 }
