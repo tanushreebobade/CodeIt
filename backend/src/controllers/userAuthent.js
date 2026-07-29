@@ -5,7 +5,7 @@ const { asyncHandler } = require("../middleware/errorHandler");
 
 // Register user
 const register = asyncHandler(async (req, res) => {
-  const { accessToken, refreshToken } = await authService.registerUser(req.body);
+  const { user, accessToken, refreshToken } = await authService.registerUser(req.body);
 
   res.cookie("token", accessToken, {
     httpOnly: true,
@@ -21,13 +21,19 @@ const register = asyncHandler(async (req, res) => {
     success: true,
     message: "Registration successful",
     token: accessToken,
+    user: {
+      _id: user._id,
+      firstName: user.firstName,
+      emailId: user.emailId,
+      role: user.role,
+    },
   });
 });
 
 // Login user
 const login = asyncHandler(async (req, res) => {
   const { emailId, password } = req.body;
-  const { accessToken, refreshToken } = await authService.loginUser(emailId, password);
+  const { user, accessToken, refreshToken } = await authService.loginUser(emailId, password);
 
   res.cookie("token", accessToken, {
     httpOnly: true,
@@ -43,6 +49,12 @@ const login = asyncHandler(async (req, res) => {
     success: true,
     message: "Login Successfully",
     token: accessToken,
+    user: {
+      _id: user._id,
+      firstName: user.firstName,
+      emailId: user.emailId,
+      role: user.role,
+    },
   });
 });
 
@@ -127,6 +139,27 @@ const getProfile = asyncHandler(async (req, res) => {
   });
 });
 
+// Delete User Profile & Cascade Cleanups
+const deleteProfile = asyncHandler(async (req, res) => {
+  const userId = req.result._id;
+
+  await userRepository.deleteById(userId);
+
+  const Submission = require("../models/submission");
+  await Submission.deleteMany({ userId });
+
+  const SolutionVideo = require("../models/solutionVideo");
+  await SolutionVideo.deleteMany({ userId });
+
+  res.cookie("token", null, { expires: new Date(Date.now()) });
+  res.cookie("refreshToken", null, { expires: new Date(Date.now()) });
+
+  return res.status(200).json({
+    success: true,
+    message: "Profile and associated data deleted successfully",
+  });
+});
+
 module.exports = {
   register,
   login,
@@ -134,4 +167,5 @@ module.exports = {
   logout,
   adminRegister,
   getProfile,
+  deleteProfile,
 };
