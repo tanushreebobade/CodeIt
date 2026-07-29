@@ -77,13 +77,25 @@ const refreshToken = asyncHandler(async (req, res) => {
 // Logout user
 const logout = asyncHandler(async (req, res) => {
   const { token } = req.cookies;
-  await authService.logoutUser(token);
-
-  res.cookie("token", null, { expires: new Date(Date.now()) });
-  res.cookie("refreshToken", null, { expires: new Date(Date.now()) });
-  return res.status(200).send("Logged Out Succesfully");
+  if (token) {
+    await authService.logoutUser(token);
+  }
+  // Clear both access token and refresh token cookies
+  res.clearCookie("token", {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: false,
+  });
+  res.clearCookie("refreshToken", {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: false,
+  });
+  return res.status(200).json({
+    success: true,
+    message: "Logged Out Successfully",
+  });
 });
-
 // Register Admin
 const adminRegister = asyncHandler(async (req, res) => {
   const { accessToken, refreshToken } = await authService.registerAdmin(req.body);
