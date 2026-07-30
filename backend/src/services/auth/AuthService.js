@@ -73,12 +73,12 @@ class AuthService {
 
     const user = await userRepository.findUserByEmail(emailId);
     if (!user) {
-      throw new UnauthorizedError("Invalid Credentials");
+      throw new BadRequestError("User does not exist with this email. Please sign up.");
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      throw new UnauthorizedError("Invalid Credentials");
+      throw new BadRequestError("Invalid password. Please try again.");
     }
 
     const tokens = this.generateTokens(user);

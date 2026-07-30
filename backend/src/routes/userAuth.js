@@ -18,7 +18,7 @@ const { registerSchema, loginSchema } = require("../validators/authValidator");
 authRouter.post("/register", authRateLimiter, validate(registerSchema), register);
 authRouter.post("/login", authRateLimiter, validate(loginSchema), login);
 authRouter.post("/refresh-token", refreshToken);
-authRouter.post("/logout", userMiddleware, logout);
+authRouter.post("/logout", logout);
 authRouter.post("/admin/register", adminMiddleware, validate(registerSchema), adminRegister);
 
 authRouter.get("/profile", userMiddleware, getProfile);

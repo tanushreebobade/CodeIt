@@ -25,7 +25,7 @@ function App() {
   return (
     <>
       <Routes>
-        <Route path="/" element={isAuthenticated ? <Homepage /> : <Navigate to="/signup" />} />
+        <Route path="/" element={<Homepage />} />
         <Route path="/login" element={isAuthenticated ? <Navigate to="/" /> : <Login />} />
         <Route path="/signup" element={isAuthenticated ? <Navigate to="/" /> : <Signup />} />
       </Routes>

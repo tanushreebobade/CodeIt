@@ -60,7 +60,11 @@ const authSlice = createSlice({
     loading: false,
     error: null
   },
-  reducers: {},
+  reducers: {
+    clearError: (state) => {
+      state.error = null;
+    }
+  },
   extraReducers: (builder) => {
     builder
       // Register User Cases
@@ -92,7 +96,7 @@ const authSlice = createSlice({
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload?.message || 'Something went wrong';
+        state.error = action.payload?.message || (typeof action.payload === 'string' ? action.payload : 'Something went wrong');
         state.isAuthenticated = false;
         state.user = null;
       })
@@ -106,10 +110,11 @@ const authSlice = createSlice({
         state.loading = false;
         state.isAuthenticated = !!action.payload;
         state.user = action.payload;
+        state.error = null;
       })
-      .addCase(checkAuth.rejected, (state, action) => {
+      .addCase(checkAuth.rejected, (state) => {
         state.loading = false;
-        state.error = action.payload?.message || 'Something went wrong';
+        state.error = null;
         state.isAuthenticated = false;
         state.user = null;
       })
@@ -134,4 +139,5 @@ const authSlice = createSlice({
   }
 });
 
+export const { clearError } = authSlice.actions;
 export default authSlice.reducer;

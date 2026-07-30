@@ -1,2 +1,33 @@
 @import "tailwindcss";
 @plugin "daisyui";
+
+/* Tailwind CSS v4 Theme Variant Configuration */
+@variant dark (&:where(.dark, .dark *));
+
+:root {
+  --bg-main: #f8fafc;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f1f5f9;
+  --bg-table-header: #f1f5f9;
+  --text-main: #0f172a;
+  --text-muted: #475569;
+  --border-main: #e2e8f0;
+  --border-card: #e2e8f0;
+}
+
+.dark, [data-theme="dark"] {
+  --bg-main: #090a0f;
+  --bg-card: #121216;
+  --bg-card-hover: #181822;
+  --bg-table-header: #17171e;
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --border-main: #1c2030;
+  --border-card: #22222a;
+}
+
+body {
+  background-color: var(--bg-main);
+  color: var(--text-main);
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
