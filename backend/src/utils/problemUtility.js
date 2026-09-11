@@ -1,5 +1,5 @@
 const executionService = require("../services/execution/executionService");
-const jdoodleEngine = require("../services/execution/JDoodleEngine");
+const codeExecutionEngine = require("../services/execution/CodeExecutionEngine");
 
 const executeCode = (code, language, stdin = "") => {
   return executionService.execute(code, language, stdin);
@@ -7,5 +7,5 @@ const executeCode = (code, language, stdin = "") => {
 
 module.exports = {
   executeCode,
-  getLanguageById: jdoodleEngine.getLanguageById,
+  getLanguageById: codeExecutionEngine.getLanguageById,
 };

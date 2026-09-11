@@ -3,79 +3,27 @@ import CodeItRocketLogo from "./CodeItRocketLogo";
 
 export default function Footer() {
   return (
-    <footer className="bg-slate-100 dark:bg-[#0c0c0e] border-t border-slate-200 dark:border-[#1a1a22] text-slate-600 dark:text-gray-400 py-12 px-4 lg:px-8 mt-16 text-sm font-sans transition-colors duration-250">
-      <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-12 gap-8 lg:gap-12">
+    <footer className="bg-[var(--bg-primary)] border-t border-[var(--border-subtle)] text-[var(--text-secondary)] py-8 px-4 lg:px-8 mt-12 text-xs font-sans transition-colors duration-150">
+      <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
 
-        {/* Left Column: Brand & Tagline */}
-        <div className="md:col-span-6 space-y-4">
-          <NavLink to="/" className="inline-flex items-center gap-2.5 text-slate-900 dark:text-white font-extrabold text-2xl tracking-tight group">
-            <CodeItRocketLogo className="w-9 h-9 group-hover:scale-105 transition-transform drop-shadow-[0_0_10px_rgba(56,189,248,0.4)]" />
-            <span className="text-2xl font-black tracking-tight">Code<span className="text-sky-500 dark:text-sky-400">It</span></span>
+        {/* Left: Brand & Copyright */}
+        <div className="flex items-center gap-3">
+          <NavLink to="/" className="inline-flex items-center gap-2 text-[var(--text-primary)] font-bold text-sm tracking-tight font-heading">
+            <CodeItRocketLogo className="w-4 h-4 text-[var(--text-primary)]" />
+            <span>CodeIt</span>
           </NavLink>
-
-          <p className="text-slate-600 dark:text-gray-300 text-sm leading-relaxed max-w-sm font-normal">
-            Learn to code with structured courses and practice.
-          </p>
-
-          <p className="text-slate-400 dark:text-gray-500 text-xs pt-4">
-            Copyright © 2026 CodeIt Technologies Pvt Ltd. All Rights Reserved.
-          </p>
+          <span className="text-[var(--text-muted)]">|</span>
+          <span className="text-[var(--text-muted)] text-xs">
+            Copyright © 2026 CodeIt. All Rights Reserved.
+          </span>
         </div>
 
-        {/* Right Columns: Links Grid */}
-        <div className="md:col-span-6 grid grid-cols-3 gap-6">
-
-          {/* Column 1: Socials (LinkedIn, X) */}
-          <div className="space-y-3">
-            <h4 className="font-bold text-slate-900 dark:text-white text-xs tracking-wider uppercase">
-              Socials
-            </h4>
-            <ul className="space-y-2.5 text-slate-600 dark:text-gray-400 text-sm">
-              <li>
-                <a
-                  href="https://www.linkedin.com/in/tanushree-bobade-b699102b3/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:text-slate-900 dark:hover:text-white transition-colors"
-                >
-                  LinkedIn
-                </a>
-              </li>
-              <li>
-                <a
-                  href="https://x.com/tanushree705"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:text-slate-900 dark:hover:text-white transition-colors"
-                >
-                  X
-                </a>
-              </li>
-            </ul>
-          </div>
-
-          {/* Column 2: Legal (Privacy Policy & Terms of Service) */}
-          <div className="space-y-3">
-            <h4 className="font-bold text-slate-900 dark:text-white text-xs tracking-wider uppercase">
-              Legal
-            </h4>
-            <ul className="space-y-2.5 text-slate-600 dark:text-gray-400 text-sm">
-              <li><a href="#" className="hover:text-slate-900 dark:hover:text-white transition-colors">Privacy Policy</a></li>
-              <li><a href="#" className="hover:text-slate-900 dark:hover:text-white transition-colors">Terms of Service</a></li>
-            </ul>
-          </div>
-
-          {/* Column 3: Register (Sign Up & Login) */}
-          <div className="space-y-3">
-            <h4 className="font-bold text-slate-900 dark:text-white text-xs tracking-wider uppercase">
-              Register
-            </h4>
-            <ul className="space-y-2.5 text-slate-600 dark:text-gray-400 text-sm">
-              <li><NavLink to="/signup" className="hover:text-slate-900 dark:hover:text-white transition-colors">Sign Up</NavLink></li>
-              <li><NavLink to="/login" className="hover:text-slate-900 dark:hover:text-white transition-colors">Login</NavLink></li>
-            </ul>
-          </div>
-
+        {/* Right: Quick Links */}
+        <div className="flex items-center gap-6 text-[var(--text-secondary)] text-xs">
+          <NavLink to="/problems" className="hover:text-[var(--text-primary)] transition-colors">Problems</NavLink>
+          <NavLink to="/leaderboard" className="hover:text-[var(--text-primary)] transition-colors">Leaderboard</NavLink>
+          <a href="https://www.linkedin.com/in/tanushree-bobade-b699102b3/" target="_blank" rel="noopener noreferrer" className="hover:text-[var(--text-primary)] transition-colors">LinkedIn</a>
+          <a href="https://x.com/tanushree705" target="_blank" rel="noopener noreferrer" className="hover:text-[var(--text-primary)] transition-colors">X (Twitter)</a>
         </div>
 
       </div>

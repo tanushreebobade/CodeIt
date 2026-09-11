@@ -1,28 +1,21 @@
-const jdoodleEngine = require("./JDoodleEngine");
+const codeExecutionEngine = require("./CodeExecutionEngine");
 const { BadRequestError } = require("../../errors/AppError");
 
-//Execution Engine 
+// execution service wrapper
 class ExecutionService {
   constructor() {
-    this.providers = {
-      jdoodle: jdoodleEngine,
-    };
+    this.provider = codeExecutionEngine;
   }
 
-  getProvider(providerName = process.env.EXECUTION_PROVIDER || "jdoodle") {
-    const provider = this.providers[providerName.toLowerCase()];
-    if (!provider) {
-      throw new BadRequestError(`Execution provider '${providerName}' is not supported.`);
-    }
-    return provider;
+  getProvider() {
+    return this.provider;
   }
 
   async execute(code, language, stdin = "") {
     if (!code || !language) {
       throw new BadRequestError("Both 'code' and 'language' are required for execution.");
     }
-    const provider = this.getProvider();
-    return await provider.execute(code, language, stdin);
+    return await this.provider.execute(code, language, stdin);
   }
 }
 

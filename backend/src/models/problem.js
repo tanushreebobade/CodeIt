@@ -1,4 +1,4 @@
-// Problem model for storing problem details and test cases
+// problem model for storing problem details and test cases
 const mongoose = require("mongoose");
 const { Schema } = mongoose;
 
@@ -148,7 +148,7 @@ const problemSchema = new Schema(
     problemCreator: {
       type: Schema.Types.ObjectId,
       ref: "User",
-      required: true,
+      required: false,
     },
 
     acceptedCount: {

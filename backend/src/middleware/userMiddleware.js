@@ -1,9 +1,10 @@
 const jwt = require("jsonwebtoken");
-const User = require("../models/user");
+const userRepository = require("../repositories/UserRepository");
 const redisClient = require("../config/redis");
 
 const userMiddleware = async (req, res, next) => {
   try {
+    // get jwt token from cookie
     const { token } = req.cookies;
     if (!token) throw new Error("Token is missing");
 
@@ -14,14 +15,22 @@ const userMiddleware = async (req, res, next) => {
       throw new Error("Invalid token");
     }
 
-    const result = await User.findById(_id);
+    const result = await userRepository.findUserById(_id);
     if (!result) {
       throw new Error("User does not exist");
     }
 
-    const isBlocked = await redisClient.exists(`token:${token}`);
-    if (isBlocked) throw new Error("Token has been revoked");
+    // check if token was revoked in redis
+    try {
+      if (redisClient && redisClient.isOpen) {
+        const isBlocked = await redisClient.exists(`token:${token}`);
+        if (isBlocked) throw new Error("Token has been revoked");
+      }
+    } catch (redisErr) {
+      if (redisErr.message === "Token has been revoked") throw redisErr;
+    }
 
+    // attach user context to request
     req.result = result;
     next();
   } catch (err) {

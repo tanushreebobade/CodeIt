@@ -1,6 +1,15 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 import axiosClient from './utils/axiosClient';
 
+const extractErrorMessage = (payload, defaultMsg = 'Something went wrong') => {
+  if (!payload) return defaultMsg;
+  if (typeof payload === 'string') return payload;
+  if (payload.message) return payload.message;
+  if (payload.error) return payload.error;
+  if (payload.details && Array.isArray(payload.details)) return payload.details.join(', ');
+  return defaultMsg;
+};
+
 export const registerUser = createAsyncThunk(
   'auth/register',
   async (userData, { rejectWithValue }) => {
@@ -58,16 +67,29 @@ const authSlice = createSlice({
     user: null,
     isAuthenticated: false,
     loading: false,
-    error: null
+    error: null,
   },
   reducers: {
     clearError: (state) => {
       state.error = null;
-    }
+    },
+    addSolvedProblemId: (state, action) => {
+      if (state.user) {
+        if (!state.user.problemSolved) {
+          state.user.problemSolved = [];
+        }
+        const problemId = String(action.payload);
+        const exists = state.user.problemSolved.some(
+          (p) => String(typeof p === "object" && p !== null ? (p._id || p) : p) === problemId
+        );
+        if (!exists) {
+          state.user.problemSolved.push(action.payload);
+        }
+      }
+    },
   },
   extraReducers: (builder) => {
     builder
-      // Register User Cases
       .addCase(registerUser.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -76,15 +98,15 @@ const authSlice = createSlice({
         state.loading = false;
         state.isAuthenticated = !!action.payload;
         state.user = action.payload;
+        state.error = null;
       })
       .addCase(registerUser.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload?.message || 'Something went wrong';
+        state.error = extractErrorMessage(action.payload, 'Registration failed. Please check your details.');
         state.isAuthenticated = false;
         state.user = null;
       })
-  
-      // Login User Cases
+
       .addCase(loginUser.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -93,15 +115,15 @@ const authSlice = createSlice({
         state.loading = false;
         state.isAuthenticated = !!action.payload;
         state.user = action.payload;
+        state.error = null;
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload?.message || (typeof action.payload === 'string' ? action.payload : 'Something went wrong');
+        state.error = extractErrorMessage(action.payload, 'Invalid email or password.');
         state.isAuthenticated = false;
         state.user = null;
       })
-  
-      // Check Auth Cases
+
       .addCase(checkAuth.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -118,8 +140,7 @@ const authSlice = createSlice({
         state.isAuthenticated = false;
         state.user = null;
       })
-  
-      // Logout User Cases
+
       .addCase(logoutUser.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -132,12 +153,12 @@ const authSlice = createSlice({
       })
       .addCase(logoutUser.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload?.message || 'Something went wrong';
+        state.error = extractErrorMessage(action.payload, 'Logout failed.');
         state.isAuthenticated = false;
         state.user = null;
       });
-  }
+  },
 });
 
-export const { clearError } = authSlice.actions;
+export const { clearError, addSolvedProblemId } = authSlice.actions;
 export default authSlice.reducer;

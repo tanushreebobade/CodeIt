@@ -1,7 +1,8 @@
 import axios from "axios";
 
+// custom axios instance with cookies enabled
 const axiosClient = axios.create({
-  baseURL: 'http://localhost:3000',
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000',
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json'

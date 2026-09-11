@@ -3,7 +3,6 @@ const submissionRepository = require("../../repositories/SubmissionRepository");
 const { NotFoundError } = require("../../errors/AppError");
 
 class ProfileService {
-  // Fetch sanitized user profile details
   async getUserProfile(userId) {
     const user = await userRepository.findUserById(userId);
     if (!user) {
@@ -14,7 +13,6 @@ class ProfileService {
     return userProfile;
   }
 
-  // Aggregate user solved counts by difficulty and calculate acceptance rate
   async getUserStats(userId) {
     const user = await userRepository.getUserProfileWithStats(userId);
     if (!user) {
@@ -23,7 +21,6 @@ class ProfileService {
 
     const submissionStats = await submissionRepository.getSubmissionStatsByUser(userId);
 
-    // Count solved problems per difficulty level
     const difficultyCounts = { easy: 0, medium: 0, hard: 0 };
     if (user.problemSolved && Array.isArray(user.problemSolved)) {
       user.problemSolved.forEach((problem) => {
@@ -52,7 +49,6 @@ class ProfileService {
     };
   }
 
-  // Sanitize and apply user profile updates
   async updateProfile(userId, updateData) {
     const allowedFields = ["firstName", "lastName", "age"];
     const filteredUpdate = {};

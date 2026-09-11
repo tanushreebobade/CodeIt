@@ -23,7 +23,7 @@ class ProblemService {
       throw new BadRequestError("Title, description, and difficulty are required.");
     }
 
-    // Validate reference solutions against visible and hidden test cases
+    // validate reference solutions against test cases
     if (referenceSolution && Array.isArray(referenceSolution)) {
       for (const { language, completeCode } of referenceSolution) {
         if (visibleTestCases) {

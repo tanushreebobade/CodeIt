@@ -1,9 +1,10 @@
 const BaseRepository = require("./BaseRepository");
 const Submission = require("../models/submission");
+const localDb = require("../config/localDb");
 
 class SubmissionRepository extends BaseRepository {
   constructor() {
-    super(Submission);
+    super(Submission, "submission");
   }
 
   async createSubmission(submissionData) {
@@ -11,57 +12,74 @@ class SubmissionRepository extends BaseRepository {
   }
 
   async getSubmissionsByUserAndProblem(userId, problemId) {
-    return await this.find(
-      { userId, problemId },
-      null,
-      { sort: { createdAt: -1 } }
-    );
+    return await this.find({ userId, problemId });
   }
 
   async getSubmissionsByUser(userId) {
-    return await this.find(
-      { userId },
-      null,
-      { sort: { createdAt: -1 } }
-    );
+    return await this.find({ userId });
   }
 
   async getUserSubmissionsPaginated(userId, { problemId, status, page = 1, limit = 10 }) {
-    const filter = { userId };
+    if (this.isMongoConnected()) {
+      try {
+        const filter = { userId };
+        if (problemId) filter.problemId = problemId;
+        if (status) filter.status = status;
 
-    if (problemId) {
-      filter.problemId = problemId;
+        const pageNum = Math.max(1, parseInt(page, 10) || 1);
+        const limitNum = Math.max(1, parseInt(limit, 10) || 10);
+        const skip = (pageNum - 1) * limitNum;
+
+        const total = await this.count(filter);
+        const submissions = await this.model
+          .find(filter)
+          .populate("problemId", "title difficulty")
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limitNum);
+
+        return {
+          submissions,
+          total,
+          page: pageNum,
+          limit: limitNum,
+          totalPages: Math.ceil(total / limitNum) || 1,
+        };
+      } catch (err) {
+        console.warn("Mongo getUserSubmissionsPaginated failed, using localDb:", err.message);
+      }
     }
 
-    if (status) {
-      filter.status = status;
-    }
+    let subs = localDb.getSubmissions().filter((s) => String(s.userId) === String(userId));
+    if (problemId) subs = subs.filter((s) => String(s.problemId) === String(problemId));
+    if (status) subs = subs.filter((s) => s.status === status);
 
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
     const limitNum = Math.max(1, parseInt(limit, 10) || 10);
     const skip = (pageNum - 1) * limitNum;
-
-    const total = await this.count(filter);
-    const submissions = await this.model
-      .find(filter)
-      .populate("problemId", "title difficulty")
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limitNum);
+    const paginated = subs.slice(skip, skip + limitNum);
 
     return {
-      submissions,
-      total,
+      submissions: paginated,
+      total: subs.length,
       page: pageNum,
       limit: limitNum,
-      totalPages: Math.ceil(total / limitNum),
+      totalPages: Math.ceil(subs.length / limitNum) || 1,
     };
   }
 
   async getSubmissionWithDetails(submissionId, userId) {
-    return await this.model
-      .findOne({ _id: submissionId, userId })
-      .populate("problemId", "title difficulty description tags");
+    if (this.isMongoConnected()) {
+      try {
+        return await this.model
+          .findOne({ _id: submissionId, userId })
+          .populate("problemId", "title difficulty description tags");
+      } catch (err) {
+        console.warn("Mongo getSubmissionWithDetails failed, using localDb:", err.message);
+      }
+    }
+    const subs = localDb.getSubmissions();
+    return subs.find((s) => String(s._id) === String(submissionId) && String(s.userId) === String(userId)) || null;
   }
 
   async getSubmissionStatsByUser(userId) {
@@ -71,8 +89,8 @@ class SubmissionRepository extends BaseRepository {
     return {
       totalSubmissions,
       acceptedSubmissions,
-      accuracyRate: totalSubmissions > 0 
-        ? Math.round((acceptedSubmissions / totalSubmissions) * 100) 
+      accuracyRate: totalSubmissions > 0
+        ? Math.round((acceptedSubmissions / totalSubmissions) * 100)
         : 0,
     };
   }

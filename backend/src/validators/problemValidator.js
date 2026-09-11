@@ -1,6 +1,5 @@
 const Joi = require("joi");
 
-// Schema for testcase inputs and outputs
 const testCaseSchema = Joi.object({
   input: Joi.string().required().messages({
     "string.empty": "Test case input is required",
@@ -21,7 +20,6 @@ const referenceSolutionSchema = Joi.object({
   completeCode: Joi.string().required(),
 });
 
-// Schema for admin problem creation payload
 const createProblemSchema = Joi.object({
   title: Joi.string().trim().min(3).max(200).required().messages({
     "string.empty": "Problem title is required",
@@ -70,7 +68,6 @@ const createProblemSchema = Joi.object({
   isPremium: Joi.boolean().optional(),
 });
 
-// Schema for partial problem updates
 const updateProblemSchema = createProblemSchema.fork(
   ["title", "description", "difficulty"],
   (schema) => schema.optional()

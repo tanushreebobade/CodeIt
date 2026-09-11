@@ -1,6 +1,5 @@
 const Joi = require("joi");
 
-// Schema for user signup payload
 const registerSchema = Joi.object({
   firstName: Joi.string().trim().min(2).max(50).required().messages({
     "string.empty": "First name is required",
@@ -18,7 +17,6 @@ const registerSchema = Joi.object({
   age: Joi.number().integer().min(10).max(120).optional(),
 });
 
-// Schema for user login payload
 const loginSchema = Joi.object({
   emailId: Joi.string().trim().email().required().messages({
     "string.email": "Please provide a valid email address",

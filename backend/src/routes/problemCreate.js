@@ -14,17 +14,15 @@ const {
   submittedProblem,
 } = require("../controllers/userProblem");
 
-// Create / Update / Delete
 problemRouter.post("/create", adminMiddleware, validate(createProblemSchema), createProblem);
 problemRouter.put("/update/:id", adminMiddleware, validate(updateProblemSchema), updateProblem);
 problemRouter.put("/updateProblem/:id", adminMiddleware, validate(updateProblemSchema), updateProblem);
 problemRouter.delete("/delete/:id", adminMiddleware, deleteProblem);
 problemRouter.delete("/deleteProblem/:id", adminMiddleware, deleteProblem);
 
-// Read / Fetch Problem Endpoints
-problemRouter.get("/getAllProblem", userMiddleware, getAllProblem);
-problemRouter.get("/problemById/:id", userMiddleware, getProblemById);
-problemRouter.get("/getProblemById/:id", userMiddleware, getProblemById);
+problemRouter.get("/getAllProblem", getAllProblem);
+problemRouter.get("/problemById/:id", getProblemById);
+problemRouter.get("/getProblemById/:id", getProblemById);
 problemRouter.get("/problemSolvedByUser", userMiddleware, solvedAllProblembyUser);
 problemRouter.get("/submittedProblem/:pid", userMiddleware, submittedProblem);
 

@@ -5,14 +5,16 @@ const { AppError } = require("../errors/AppError");
 const solveDoubt = asyncHandler(async (req, res) => {
   const { messages, title, description, testCases, startCode } = req.body;
 
+  // verify gemini api key is present
   if (!process.env.GEMINI_KEY) {
     throw new AppError('Gemini API key is not configured on the server', 500);
   }
 
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_KEY });
 
+  // call latest supported gemini model (gemini-3.6-flash)
   const response = await ai.models.generateContent({
-    model: "gemini-1.5-flash",
+    model: "gemini-3.6-flash",
     contents: messages,
     config: {
       systemInstruction: `

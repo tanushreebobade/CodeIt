@@ -7,6 +7,7 @@ const main = require("./config/db");
 const cookieParser = require("cookie-parser");
 
 const authRouter = require("./routes/userAuth");
+const oauthRouter = require("./routes/oauthRoute");
 const redisClient = require("./config/redis");
 const problemRouter = require("./routes/problemCreate");
 const submissionRouter = require("./routes/submission");
@@ -16,15 +17,25 @@ const videoRouter = require("./routes/videoCreator");
 const aiRouter = require("./routes/aiChatting");
 const { errorHandler } = require("./middleware/errorHandler");
 
-// CORS Middleware
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  process.env.FRONTEND_URL,
+].filter(Boolean);
+
 app.use(cors({
-  origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin) || process.env.NODE_ENV !== "production") {
+      callback(null, true);
+    } else {
+      callback(null, true);
+    }
+  },
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"]
 }));
 
-// Helmet 
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
@@ -32,7 +43,8 @@ app.use(helmet({
 app.use(express.json());
 app.use(cookieParser());
 
-app.use("/user", authRouter); // Cleaned duplicate
+app.use("/user", authRouter);
+app.use("/auth", oauthRouter);
 app.use("/profile", profileRouter);
 app.use("/problem", problemRouter);
 app.use("/submission", submissionRouter);
@@ -40,7 +52,6 @@ app.use("/leaderboard", leaderboardRouter);
 app.use("/video", videoRouter);
 app.use("/ai", aiRouter);
 
-// Centralized Global Error Handler
 app.use(errorHandler);
 
 const InitalizeConnection = async () => {
@@ -49,6 +60,8 @@ const InitalizeConnection = async () => {
   try {
     await main();
     console.log("MongoDB Connected successfully");
+    const seedInitialProblemsIfEmpty = require("./config/seedProblems");
+    await seedInitialProblemsIfEmpty();
   } catch (err) {
     console.error("MongoDB Connection Error:", err.message);
   }
@@ -57,7 +70,12 @@ const InitalizeConnection = async () => {
     await redisClient.connect();
     console.log("Redis Connected successfully");
   } catch (err) {
-    console.error("Redis Connection Error:", err.message);
+    console.warn("Redis Connection Failed (continuing without Redis):", err.message);
+    try {
+      await redisClient.disconnect();
+    } catch (e) {
+      // ignore
+    }
   }
 
   app.listen(port, () => {

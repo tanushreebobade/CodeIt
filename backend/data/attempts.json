@@ -1,0 +1,34 @@
+[
+  {
+    "_id": "att_1789130167027",
+    "userId": "u_1789129857580_ydvho",
+    "problemId": "678901",
+    "runAttempts": 5,
+    "submitAttempts": 4,
+    "solved": false
+  },
+  {
+    "_id": "att_1789130570218",
+    "userId": "u_1789129857580_ydvho",
+    "problemId": "6a64bb23a1e6865b6a53f5d3",
+    "runAttempts": 5,
+    "submitAttempts": 5,
+    "solved": false
+  },
+  {
+    "_id": "att_1789131594533",
+    "userId": "u_1789131546073_8d5rj",
+    "problemId": "6a64bb23a1e6865b6a53f5d3",
+    "runAttempts": 5,
+    "submitAttempts": 4,
+    "solved": true
+  },
+  {
+    "_id": "att_1789131997636",
+    "userId": "u_1789131546073_8d5rj",
+    "problemId": "6a6c3bad08eb3055b5937a82",
+    "runAttempts": 7,
+    "submitAttempts": 4,
+    "solved": true
+  }
+]

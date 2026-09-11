@@ -7,7 +7,8 @@ const EXECUTION_STATUS = Object.freeze({
   TIME_LIMIT_EXCEEDED: "Time Limit Exceeded",
   MEMORY_LIMIT_EXCEEDED: "Memory Limit Exceeded",
 });
-//languages 
+
+// supported languages
 const SUPPORTED_LANGUAGES = Object.freeze({
   CPP: "cpp",
   C: "c",
@@ -16,18 +17,21 @@ const SUPPORTED_LANGUAGES = Object.freeze({
   PYTHON: "python",
 });
 
-//version
-const JDOODLE_LANGUAGE_MAP = Object.freeze({
-  cpp: { language: "cpp17", versionIndex: "2" },
-  "c++": { language: "cpp17", versionIndex: "2" },
-  c: { language: "c", versionIndex: "5" },
-  java: { language: "java", versionIndex: "4" },
-  javascript: { language: "nodejs", versionIndex: "5" },
-  python: { language: "python3", versionIndex: "5" },
+// onlinecompiler.io language identifier mapping
+const ONLINE_COMPILER_LANGUAGE_MAP = Object.freeze({
+  cpp: "g++-15",
+  "c++": "g++-15",
+  c: "gcc-15",
+  java: "openjdk-25",
+  javascript: "typescript-deno",
+  nodejs: "typescript-deno",
+  js: "typescript-deno",
+  python: "python-3.14",
+  py: "python-3.14",
 });
 
 module.exports = {
   EXECUTION_STATUS,
   SUPPORTED_LANGUAGES,
-  JDOODLE_LANGUAGE_MAP,
+  ONLINE_COMPILER_LANGUAGE_MAP,
 };

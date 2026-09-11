@@ -1,0 +1,44 @@
+[
+  {
+    "_id": "sub_1789132358930_ae2nz",
+    "userId": "u_1789131546073_8d5rj",
+    "problemId": "6a6c3bad08eb3055b5937a82",
+    "code": "#include <vector>\nusing namespace std;\n\nclass Solution {\npublic:\n    int trap(vector<int>& height) {\n        int left = 0;\n        int right = height.size() - 1;\n\n        int leftMax = 0;\n        int rightMax = 0;\n        int water = 0;\n\n        while (left < right) {\n            if (height[left] <= height[right]) {\n                if (height[left] >= leftMax) {\n                    leftMax = height[left];\n                } else {\n                    water += leftMax - height[left];\n                }\n                left++;\n            } else {\n                if (height[right] >= rightMax) {\n                    rightMax = height[right];\n                } else {\n                    water += rightMax - height[right];\n                }\n                right--;\n            }\n        }\n\n        return water;\n    }\n};",
+    "language": "cpp",
+    "status": "Accepted",
+    "runtime": 0.0225,
+    "memory": 7664,
+    "errorMessage": "",
+    "testCasesPassed": 1,
+    "totalTestCases": 1,
+    "createdAt": "2026-09-11T13:12:38.930Z"
+  },
+  {
+    "_id": "sub_1789131973702_oksyc",
+    "userId": "u_1789131546073_8d5rj",
+    "problemId": "6a64bb23a1e6865b6a53f5d3",
+    "code": "#include <vector>\n#include <unordered_map>\nusing namespace std;\n\nclass Solution {\npublic:\n    vector<int> twoSum(vector<int>& nums, int target) {\n        unordered_map<int, int> mp;\n\n        for (int i = 0; i < nums.size(); i++) {\n            int complement = target - nums[i];\n\n            if (mp.find(complement) != mp.end()) {\n                return {mp[complement], i};\n            }\n\n            mp[nums[i]] = i;\n        }\n\n        return {};\n    }\n};",
+    "language": "cpp",
+    "status": "Accepted",
+    "runtime": 0.0233,
+    "memory": 6860,
+    "errorMessage": "",
+    "testCasesPassed": 2,
+    "totalTestCases": 2,
+    "createdAt": "2026-09-11T13:06:13.702Z"
+  },
+  {
+    "_id": "sub_1789130247759_7m94c",
+    "userId": "u_1789129857580_ydvho",
+    "problemId": "678901",
+    "code": "#include<iostream>\n#include<vector>\n#include<unordered_map>\nusing namespace std;\n\nint main(){\n    int n;\n    cin >> n;\n\n    vector<int> nums(n);\n    for(int i = 0; i < n; i++)\n        cin >> nums[i];\n\n    int target;\n    cin >> target;\n\n    unordered_map<int, int> mp;\n\n    for(int i = 0; i < n; i++){\n        int complement = target - nums[i];\n\n        if(mp.find(complement) != mp.end()){\n            cout << mp[complement] << \" \" << i;\n            return 0;\n        }\n\n        mp[nums[i]] = i;\n    }\n\n    return 0;\n}",
+    "language": "cpp",
+    "status": "Wrong Answer",
+    "runtime": 0.0253,
+    "memory": 5792,
+    "errorMessage": "",
+    "testCasesPassed": 0,
+    "totalTestCases": 2,
+    "createdAt": "2026-09-11T12:37:27.759Z"
+  }
+]

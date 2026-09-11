@@ -13,13 +13,13 @@ class AuthService {
       role: user.role,
     };
 
-    const accessToken = jwt.sign(payload, process.env.JWT_KEY, {
+    const accessToken = jwt.sign(payload, process.env.JWT_KEY || "codeit_secret_jwt_key_2026_secure", {
       expiresIn: "15m",
     });
 
     const refreshToken = jwt.sign(
       { _id: user._id, type: "refresh" },
-      process.env.JWT_KEY,
+      process.env.JWT_KEY || "codeit_secret_jwt_key_2026_secure",
       { expiresIn: "7d" }
     );
 
@@ -29,8 +29,9 @@ class AuthService {
   async registerUser(userData) {
     validate(userData);
     const { firstName, emailId, password } = userData;
+    const normalizedEmail = emailId.trim().toLowerCase();
 
-    const existingUser = await userRepository.findUserByEmail(emailId);
+    const existingUser = await userRepository.findUserByEmail(normalizedEmail);
     if (existingUser) {
       throw new BadRequestError("User with this email already exists.");
     }
@@ -38,6 +39,7 @@ class AuthService {
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = await userRepository.create({
       ...userData,
+      emailId: normalizedEmail,
       password: hashedPassword,
       role: "user",
     });
@@ -49,8 +51,9 @@ class AuthService {
   async registerAdmin(adminData) {
     validate(adminData);
     const { emailId, password } = adminData;
+    const normalizedEmail = emailId.trim().toLowerCase();
 
-    const existingUser = await userRepository.findUserByEmail(emailId);
+    const existingUser = await userRepository.findUserByEmail(normalizedEmail);
     if (existingUser) {
       throw new BadRequestError("User with this email already exists.");
     }
@@ -58,6 +61,7 @@ class AuthService {
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = await userRepository.create({
       ...adminData,
+      emailId: normalizedEmail,
       password: hashedPassword,
       role: "admin",
     });
@@ -71,12 +75,19 @@ class AuthService {
       throw new BadRequestError("Email and password are required.");
     }
 
-    const user = await userRepository.findUserByEmail(emailId);
+    const normalizedEmail = emailId.trim().toLowerCase();
+    const user = await userRepository.findUserByEmail(normalizedEmail);
     if (!user) {
       throw new BadRequestError("User does not exist with this email. Please sign up.");
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
+    let isMatch = false;
+    if (user.password && (user.password.startsWith("$2b$") || user.password.startsWith("$2a$"))) {
+      isMatch = await bcrypt.compare(password, user.password);
+    } else {
+      isMatch = user.password === password;
+    }
+
     if (!isMatch) {
       throw new BadRequestError("Invalid password. Please try again.");
     }
@@ -91,7 +102,7 @@ class AuthService {
     }
 
     try {
-      const decoded = jwt.verify(refreshToken, process.env.JWT_KEY);
+      const decoded = jwt.verify(refreshToken, process.env.JWT_KEY || "codeit_secret_jwt_key_2026_secure");
       if (decoded.type !== "refresh") {
         throw new UnauthorizedError("Invalid Refresh Token type");
       }
@@ -103,7 +114,7 @@ class AuthService {
 
       const newAccessToken = jwt.sign(
         { _id: user._id, emailId: user.emailId, role: user.role },
-        process.env.JWT_KEY,
+        process.env.JWT_KEY || "codeit_secret_jwt_key_2026_secure",
         { expiresIn: "15m" }
       );
 
@@ -116,10 +127,12 @@ class AuthService {
   async logoutUser(token) {
     if (!token) return;
     try {
-      const payload = jwt.decode(token);
-      if (payload && payload.exp) {
-        await redisClient.set(`token:${token}`, "Blocked");
-        await redisClient.expireAt(`token:${token}`, payload.exp);
+      if (redisClient && redisClient.isOpen) {
+        const payload = jwt.decode(token);
+        if (payload && payload.exp) {
+          await redisClient.set(`token:${token}`, "Blocked");
+          await redisClient.expireAt(`token:${token}`, payload.exp);
+        }
       }
     } catch (err) {
       console.error("Logout blacklist error:", err.message);

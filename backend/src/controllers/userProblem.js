@@ -2,6 +2,7 @@ const problemService = require("../services/problem/ProblemService");
 const SolutionVideo = require("../models/solutionVideo");
 const User = require("../models/user");
 const Submission = require("../models/submission");
+const userRepository = require("../repositories/UserRepository");
 const { asyncHandler } = require("../middleware/errorHandler");
 
 // Create problem
@@ -29,7 +30,7 @@ const getAllProblem = asyncHandler(async (req, res) => {
 
   // Default: return raw array of problems for frontend catalog compatibility
   const Problem = require("../models/problem");
-  const problems = await Problem.find({}).select('_id title difficulty tags');
+  const problems = await Problem.find({}).select('_id title difficulty tags isPremium acceptedCount submissionCount');
   return res.status(200).json(problems);
 });
 
@@ -77,10 +78,7 @@ const deleteProblem = asyncHandler(async (req, res) => {
 const solvedAllProblembyUser = asyncHandler(async (req, res) => {
   const userId = req.result._id;
 
-  const user = await User.findById(userId).populate({
-    path: "problemSolved",
-    select: "_id title difficulty tags",
-  });
+  const user = await userRepository.getUserProfileWithStats(userId);
 
   return res.status(200).json(user?.problemSolved || []);
 });

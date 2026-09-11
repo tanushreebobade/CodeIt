@@ -3,7 +3,6 @@ const userRepository = require("../repositories/UserRepository");
 const submissionRepository = require("../repositories/SubmissionRepository");
 const { asyncHandler } = require("../middleware/errorHandler");
 
-// Register user
 const register = asyncHandler(async (req, res) => {
   const { user, accessToken, refreshToken } = await authService.registerUser(req.body);
 
@@ -26,11 +25,11 @@ const register = asyncHandler(async (req, res) => {
       firstName: user.firstName,
       emailId: user.emailId,
       role: user.role,
+      problemSolved: user.problemSolved || [],
     },
   });
 });
 
-// Login user
 const login = asyncHandler(async (req, res) => {
   const { emailId, password } = req.body;
   const { user, accessToken, refreshToken } = await authService.loginUser(emailId, password);
@@ -54,11 +53,11 @@ const login = asyncHandler(async (req, res) => {
       firstName: user.firstName,
       emailId: user.emailId,
       role: user.role,
+      problemSolved: user.problemSolved || [],
     },
   });
 });
 
-// Refresh Access Token
 const refreshToken = asyncHandler(async (req, res) => {
   const token = req.cookies.refreshToken || req.body.refreshToken;
   const { accessToken } = await authService.refreshAccessToken(token);
@@ -74,13 +73,12 @@ const refreshToken = asyncHandler(async (req, res) => {
   });
 });
 
-// Logout user
 const logout = asyncHandler(async (req, res) => {
   const { token } = req.cookies;
   if (token) {
     await authService.logoutUser(token);
   }
-  // Clear both access token and refresh token cookies
+
   res.clearCookie("token", {
     httpOnly: true,
     sameSite: "lax",
@@ -96,7 +94,7 @@ const logout = asyncHandler(async (req, res) => {
     message: "Logged Out Successfully",
   });
 });
-// Register Admin
+
 const adminRegister = asyncHandler(async (req, res) => {
   const { accessToken, refreshToken } = await authService.registerAdmin(req.body);
 
@@ -117,7 +115,6 @@ const adminRegister = asyncHandler(async (req, res) => {
   });
 });
 
-// Get user profile & statistics
 const getProfile = asyncHandler(async (req, res) => {
   const userId = req.result._id;
   const user = await userRepository.getUserProfileWithStats(userId);
@@ -151,7 +148,6 @@ const getProfile = asyncHandler(async (req, res) => {
   });
 });
 
-// Delete User Profile & Cascade Cleanups
 const deleteProfile = asyncHandler(async (req, res) => {
   const userId = req.result._id;
 

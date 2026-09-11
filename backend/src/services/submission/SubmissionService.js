@@ -20,14 +20,14 @@ const evaluateSubmission = async (code, language, hiddenTestCases) => {
     const currentRuntime = Number(result.cpuTime) || 0;
     const currentMemory = Number(result.memory) || 0;
 
-    // Track peak usage across all test cases
+    // track peak usage across all test cases
     if (currentRuntime > maxRuntime) maxRuntime = currentRuntime;
     if (currentMemory > maxMemory) maxMemory = currentMemory;
 
     const output = result.output?.trim() || "";
     const lowerOutput = output.toLowerCase();
 
-    // Check compilation errors
+    // check compilation errors
     if (
       lowerOutput.includes("error:") ||
       lowerOutput.includes("compilation failed") ||
@@ -46,7 +46,7 @@ const evaluateSubmission = async (code, language, hiddenTestCases) => {
       break;
     }
 
-    // Check runtime exceptions
+    // check runtime exceptions
     if (
       output.includes("Segmentation fault") ||
       output.includes("Runtime Error") ||
@@ -67,7 +67,7 @@ const evaluateSubmission = async (code, language, hiddenTestCases) => {
       break;
     }
 
-    // Check execution timeouts
+    // check execution timeouts
     if (
       result.statusCode === 408 ||
       output.includes("Time Limit Exceeded") ||
@@ -138,18 +138,18 @@ const processSubmission = async ({ userId, problemId, code, language, hiddenTest
     totalTestCases: hiddenTestCases.length,
   });
 
-  // Update user attempt and mark solved if accepted
+  // update user attempt and mark solved if accepted
   let attempt = await attemptRepository.decrementSubmitAttempt(userId, problemId);
   if (isAccepted) {
     attempt = await attemptRepository.markSolved(userId, problemId);
     await userRepository.addSolvedProblem(userId, problemId);
-    // Update Redis Global Leaderboard score asynchronously
+    // update redis leaderboard score asynchronously
     leaderboardService.updateUserScore(userId, 1).catch((err) => {
       console.error("Leaderboard score update async error:", err.message);
     });
   }
 
-  // Update overall problem submission stats
+  // update overall problem submission stats
   await problemRepository.incrementSubmissionCount(problemId, isAccepted);
 
   return {

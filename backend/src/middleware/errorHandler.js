@@ -1,4 +1,3 @@
-// Centralized error handling middleware
 const { AppError } = require("../errors/AppError");
 
 const errorHandler = (err, req, res, next) => {
@@ -6,27 +5,28 @@ const errorHandler = (err, req, res, next) => {
   let message = err.message || "Internal Server Error";
   let details = err.details || null;
 
-  // Handle Mongoose Validation Error
   if (err.name === "ValidationError") {
     statusCode = 400;
     message = "Validation Error";
     details = Object.values(err.errors).map((e) => e.message);
   }
 
-  // Handle Mongoose CastError (Invalid ID)
   if (err.name === "CastError") {
     statusCode = 400;
     message = `Invalid format for field: ${err.path}`;
   }
 
-  // Handle Duplicate Key Error (E11000)
   if (err.code === 11000) {
     statusCode = 409;
     const field = Object.keys(err.keyValue)[0];
     message = `Duplicate value for field: ${field}`;
   }
 
-  // Handle JWT Errors
+  if (err.message && err.message.includes("buffering timed out")) {
+    statusCode = 503;
+    message = "Database is currently connecting. Please try again in a moment.";
+  }
+
   if (err.name === "JsonWebTokenError") {
     statusCode = 401;
     message = "Invalid authentication token";
@@ -50,7 +50,7 @@ const errorHandler = (err, req, res, next) => {
   });
 };
 
-// Async wrapper to avoid try-catch boilerplate in controllers
+// wraps async controller functions to forward errors
 const asyncHandler = (fn) => (req, res, next) => {
   Promise.resolve(fn(req, res, next)).catch(next);
 };

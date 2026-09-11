@@ -1,6 +1,6 @@
 const { TooManyRequestsError } = require("../errors/AppError");
 
-// In memory sliding window rate limiter
+// in-memory sliding window rate limiter
 const createRateLimiter = ({ windowMs = 60 * 1000, max = 10, message = "Too many requests, please try again later." }) => {
   const requests = new Map();
 
@@ -13,8 +13,6 @@ const createRateLimiter = ({ windowMs = 60 * 1000, max = 10, message = "Too many
     }
 
     const timestamps = requests.get(key);
-
-    // Filter out timestamps older than windowMs
     const validTimestamps = timestamps.filter((time) => now - time < windowMs);
 
     if (validTimestamps.length >= max) {
@@ -33,13 +31,13 @@ const createRateLimiter = ({ windowMs = 60 * 1000, max = 10, message = "Too many
 };
 
 const authRateLimiter = createRateLimiter({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 15 * 60 * 1000,
   max: 15,
   message: "Too many login/register attempts from this IP. Please try again after 15 minutes.",
 });
 
 const submissionRateLimiter = createRateLimiter({
-  windowMs: 1 * 60 * 1000, // 1 minute
+  windowMs: 1 * 60 * 1000,
   max: 10,
   message: "Too many code execution attempts. Please wait a minute before running code again.",
 });

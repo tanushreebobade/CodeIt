@@ -1,0 +1,39 @@
+[
+  {
+    "_id": "u_1788864033628_o8sem",
+    "firstName": "radhaa",
+    "emailId": "raj@gmail.com",
+    "password": "$2b$10$udqPsqniN7c7Z1FoF4eiHuWuPO./1cjIgDBVSgVLGiPA90Xdrb9gG",
+    "role": "user",
+    "problemSolved": [],
+    "problemAttempts": [],
+    "createdAt": "2026-09-08T10:40:33.628Z",
+    "updatedAt": "2026-09-08T10:40:33.628Z"
+  },
+  {
+    "_id": "u_1789129857580_ydvho",
+    "firstName": "Tanushree",
+    "lastName": "Bobade",
+    "emailId": "tanushreebobade@gmail.com",
+    "password": "$2b$10$mxPqe71Va6HGVxKuO.0h..jwp8kjS03j2V.GCri4WVwjszjfsNCMa",
+    "role": "user",
+    "problemSolved": [],
+    "problemAttempts": [],
+    "createdAt": "2026-09-11T12:30:57.580Z",
+    "updatedAt": "2026-09-11T12:30:57.580Z"
+  },
+  {
+    "_id": "u_1789131546073_8d5rj",
+    "firstName": "ff",
+    "emailId": "u@gmail.com",
+    "password": "$2b$10$GZlvkhFB8f2hvVIQfCYw3eeEFw64WUwVxp2zQc0YijHljwWAM.ykW",
+    "role": "user",
+    "problemSolved": [
+      "6a64bb23a1e6865b6a53f5d3",
+      "6a6c3bad08eb3055b5937a82"
+    ],
+    "problemAttempts": [],
+    "createdAt": "2026-09-11T12:59:06.073Z",
+    "updatedAt": "2026-09-11T12:59:06.073Z"
+  }
+]

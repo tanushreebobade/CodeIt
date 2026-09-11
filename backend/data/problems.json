@@ -1,0 +1,202 @@
+[
+  {
+    "_id": "6a64bb23a1e6865b6a53f5d3",
+    "title": "Two Sum",
+    "difficulty": "easy",
+    "tags": [
+      "array",
+      "hashmap"
+    ],
+    "companyTags": [
+      "google",
+      "amazon",
+      "meta",
+      "apple"
+    ],
+    "description": "Given an array of integers `nums` and an integer `target`, return indices of the two numbers such that they add up to `target`.",
+    "examples": [
+      {
+        "input": "nums = [2,7,11,15], target = 9",
+        "output": "[0,1]",
+        "explanation": "Because nums[0] + nums[1] == 9, we return [0, 1]."
+      }
+    ],
+    "constraints": "2 <= nums.length <= 10^4\n-10^9 <= nums[i] <= 10^9\n-10^9 <= target <= 10^9",
+    "hints": [
+      "Use a Hash Map for O(N) lookup."
+    ],
+    "editorial": "Hash map approach.",
+    "visibleTestCases": [
+      {
+        "input": "4\n2 7 11 15\n9",
+        "output": "0 1"
+      }
+    ],
+    "hiddenTestCases": [
+      {
+        "input": "2\n3 3\n6",
+        "output": "0 1"
+      }
+    ],
+    "startCode": [
+      {
+        "language": "cpp",
+        "initialCode": "#include <vector>\n#include <unordered_map>\nusing namespace std;\n\nclass Solution {\npublic:\n    vector<int> twoSum(vector<int>& nums, int target) {\n        // Write your solution\n    }\n};"
+      }
+    ],
+    "status": "published",
+    "acceptedCount": 9,
+    "submissionCount": 13
+  },
+  {
+    "_id": "6aa4040a9d253b8d715231b0",
+    "title": "Trapping Rain Water",
+    "difficulty": "hard",
+    "tags": [
+      "array",
+      "twoPointers",
+      "stack"
+    ],
+    "companyTags": [
+      "google",
+      "amazon"
+    ],
+    "description": "Given n non-negative integers representing an elevation map where the width of each bar is 1, compute how much water it can trap after raining.",
+    "examples": [
+      {
+        "input": "height = [4,2,0,3,2,5]",
+        "output": "9",
+        "explanation": "9 units of rain water are trapped."
+      }
+    ],
+    "constraints": "n == height.length\n1 <= n <= 2 * 10^4\n0 <= height[i] <= 10^5",
+    "hints": [
+      "Use two pointers."
+    ],
+    "editorial": "Two pointer approach.",
+    "visibleTestCases": [
+      {
+        "input": "height = [4,2,0,3,2,5]",
+        "output": "9",
+        "explanation": "9 units of rain water are trapped."
+      }
+    ],
+    "hiddenTestCases": [
+      {
+        "input": "height = [3,0,2,0,4]",
+        "output": "7"
+      }
+    ],
+    "startCode": [
+      {
+        "language": "cpp",
+        "initialCode": "#include <vector>\nusing namespace std;\n\nclass Solution {\npublic:\n    int trap(vector<int>& height) {\n        // Write your C++ solution here\n    }\n};"
+      }
+    ],
+    "status": "published",
+    "acceptedCount": 0,
+    "submissionCount": 0
+  },
+  {
+    "_id": "6a64bb23a1e6865b6a53f5d6",
+    "title": "Valid Parentheses",
+    "difficulty": "easy",
+    "tags": [
+      "string",
+      "stack"
+    ],
+    "companyTags": [
+      "google",
+      "amazon",
+      "microsoft"
+    ],
+    "description": "Given a string `s` containing just the characters `'('`, `')'`, `'{'`, `'}'`, `'['` and `']'`, determine if the input string is valid.",
+    "examples": [
+      {
+        "input": "s = '()'",
+        "output": "true",
+        "explanation": "Matching pair."
+      }
+    ],
+    "constraints": "1 <= s.length <= 10^4",
+    "hints": [
+      "Use a stack."
+    ],
+    "editorial": "Stack approach.",
+    "visibleTestCases": [
+      {
+        "input": "()",
+        "output": "true"
+      }
+    ],
+    "hiddenTestCases": [
+      {
+        "input": "(]",
+        "output": "false"
+      }
+    ],
+    "startCode": [
+      {
+        "language": "cpp",
+        "initialCode": "#include <string>\n#include <stack>\nusing namespace std;\n\nclass Solution {\npublic:\n    bool isValid(string s) {\n        // Write your solution here\n    }\n};"
+      }
+    ],
+    "status": "published",
+    "isPremium": false,
+    "acceptedCount": 21,
+    "submissionCount": 34
+  },
+  {
+    "_id": "6a6c3bad08eb3055b5937a88",
+    "title": "Number of Islands",
+    "difficulty": "medium",
+    "tags": [
+      "graph",
+      "recursion"
+    ],
+    "companyTags": [
+      "google",
+      "amazon",
+      "meta"
+    ],
+    "description": "Premium Problem. Upgrade to Pro to view problem details and submit solutions.",
+    "examples": [],
+    "constraints": "",
+    "hints": [],
+    "editorial": "",
+    "visibleTestCases": [],
+    "hiddenTestCases": [],
+    "startCode": [],
+    "status": "published",
+    "isPremium": true,
+    "acceptedCount": 15,
+    "submissionCount": 28
+  },
+  {
+    "_id": "6a6c3bad08eb3055b5937a89",
+    "title": "LRU Cache",
+    "difficulty": "hard",
+    "tags": [
+      "hashmap",
+      "linkedList"
+    ],
+    "companyTags": [
+      "google",
+      "amazon",
+      "microsoft",
+      "apple"
+    ],
+    "description": "Premium Problem. Upgrade to Pro to view problem details and submit solutions.",
+    "examples": [],
+    "constraints": "",
+    "hints": [],
+    "editorial": "",
+    "visibleTestCases": [],
+    "hiddenTestCases": [],
+    "startCode": [],
+    "status": "published",
+    "isPremium": true,
+    "acceptedCount": 8,
+    "submissionCount": 19
+  }
+]
