@@ -12,9 +12,9 @@ const solveDoubt = asyncHandler(async (req, res) => {
 
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_KEY });
 
-  // call latest supported gemini model (gemini-2.0-flash)
+  // call latest supported gemini model (gemini-3.6-flash)
   const response = await ai.models.generateContent({
-    model: "gemini-2.0-flash",
+    model: "gemini-3.6-flash",
     contents: messages,
     config: {
       systemInstruction: `

@@ -60,10 +60,11 @@ function Login() {
   };
 
   const handleSocialLogin = (provider) => {
+    const backendUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
     if (provider === 'Google') {
-      window.location.href = 'http://localhost:3000/auth/google';
+      window.location.href = `${backendUrl}/auth/google`;
     } else if (provider === 'GitHub') {
-      window.location.href = 'http://localhost:3000/auth/github';
+      window.location.href = `${backendUrl}/auth/github`;
     }
   };
 
