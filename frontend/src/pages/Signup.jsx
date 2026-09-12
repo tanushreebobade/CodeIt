@@ -64,12 +64,7 @@ function Signup() {
   };
 
   const handleSocialLogin = (provider) => {
-    const backendUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
-    if (provider === 'Google') {
-      window.location.href = `${backendUrl}/auth/google`;
-    } else if (provider === 'GitHub') {
-      window.location.href = `${backendUrl}/auth/github`;
-    }
+    // OAuth coming soon
   };
 
   const displayError = typeof reduxError === 'string' ? reduxError : reduxError?.message;

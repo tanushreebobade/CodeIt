@@ -7,7 +7,6 @@ const main = require("./config/db");
 const cookieParser = require("cookie-parser");
 
 const authRouter = require("./routes/userAuth");
-const oauthRouter = require("./routes/oauthRoute");
 const redisClient = require("./config/redis");
 const problemRouter = require("./routes/problemCreate");
 const submissionRouter = require("./routes/submission");
@@ -44,7 +43,6 @@ app.use(express.json());
 app.use(cookieParser());
 
 app.use("/user", authRouter);
-app.use("/auth", oauthRouter);
 app.use("/profile", profileRouter);
 app.use("/problem", problemRouter);
 app.use("/submission", submissionRouter);
