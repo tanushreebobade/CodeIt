@@ -3,18 +3,22 @@ const userRepository = require("../repositories/UserRepository");
 const submissionRepository = require("../repositories/SubmissionRepository");
 const { asyncHandler } = require("../middleware/errorHandler");
 
+// helper: cookie options — cross-domain safe for Render + Vercel
+function getCookieOptions(maxAgeMs) {
+  const isProduction = process.env.NODE_ENV === "production";
+  return {
+    httpOnly: true,
+    maxAge: maxAgeMs,
+    secure: isProduction,
+    sameSite: isProduction ? "none" : "lax",
+  };
+}
+
 const register = asyncHandler(async (req, res) => {
   const { user, accessToken, refreshToken } = await authService.registerUser(req.body);
 
-  res.cookie("token", accessToken, {
-    httpOnly: true,
-    maxAge: 15 * 60 * 1000,
-  });
-
-  res.cookie("refreshToken", refreshToken, {
-    httpOnly: true,
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-  });
+  res.cookie("token", accessToken, getCookieOptions(15 * 60 * 1000));
+  res.cookie("refreshToken", refreshToken, getCookieOptions(7 * 24 * 60 * 60 * 1000));
 
   return res.status(201).json({
     success: true,
@@ -34,15 +38,8 @@ const login = asyncHandler(async (req, res) => {
   const { emailId, password } = req.body;
   const { user, accessToken, refreshToken } = await authService.loginUser(emailId, password);
 
-  res.cookie("token", accessToken, {
-    httpOnly: true,
-    maxAge: 15 * 60 * 1000,
-  });
-
-  res.cookie("refreshToken", refreshToken, {
-    httpOnly: true,
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-  });
+  res.cookie("token", accessToken, getCookieOptions(15 * 60 * 1000));
+  res.cookie("refreshToken", refreshToken, getCookieOptions(7 * 24 * 60 * 60 * 1000));
 
   return res.status(200).json({
     success: true,
@@ -62,10 +59,7 @@ const refreshToken = asyncHandler(async (req, res) => {
   const token = req.cookies.refreshToken || req.body.refreshToken;
   const { accessToken } = await authService.refreshAccessToken(token);
 
-  res.cookie("token", accessToken, {
-    httpOnly: true,
-    maxAge: 15 * 60 * 1000,
-  });
+  res.cookie("token", accessToken, getCookieOptions(15 * 60 * 1000));
 
   return res.status(200).json({
     success: true,
@@ -79,16 +73,15 @@ const logout = asyncHandler(async (req, res) => {
     await authService.logoutUser(token);
   }
 
-  res.clearCookie("token", {
+  const isProduction = process.env.NODE_ENV === "production";
+  const clearOptions = {
     httpOnly: true,
-    sameSite: "lax",
-    secure: false,
-  });
-  res.clearCookie("refreshToken", {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: false,
-  });
+    secure: isProduction,
+    sameSite: isProduction ? "none" : "lax",
+  };
+
+  res.clearCookie("token", clearOptions);
+  res.clearCookie("refreshToken", clearOptions);
   return res.status(200).json({
     success: true,
     message: "Logged Out Successfully",
@@ -98,15 +91,8 @@ const logout = asyncHandler(async (req, res) => {
 const adminRegister = asyncHandler(async (req, res) => {
   const { accessToken, refreshToken } = await authService.registerAdmin(req.body);
 
-  res.cookie("token", accessToken, {
-    httpOnly: true,
-    maxAge: 15 * 60 * 1000,
-  });
-
-  res.cookie("refreshToken", refreshToken, {
-    httpOnly: true,
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-  });
+  res.cookie("token", accessToken, getCookieOptions(15 * 60 * 1000));
+  res.cookie("refreshToken", refreshToken, getCookieOptions(7 * 24 * 60 * 60 * 1000));
 
   return res.status(201).json({
     success: true,

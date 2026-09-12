@@ -14,20 +14,38 @@ function sanitizeName(str, defaultVal = "Coder") {
   return cleaned.slice(0, 20);
 }
 
+// helper: get frontend URL from env
+function getFrontendUrl() {
+  return process.env.FRONTEND_URL || "http://localhost:5173";
+}
+
+// helper: cookie options — cross-domain safe for Render + Vercel
+function getCookieOptions(maxAgeMs) {
+  const isProduction = process.env.NODE_ENV === "production";
+  return {
+    httpOnly: true,
+    maxAge: maxAgeMs,
+    secure: isProduction,
+    sameSite: isProduction ? "none" : "lax",
+  };
+}
+
 const googleAuth = (req, res) => {
   const clientId = process.env.GOOGLE_CLIENT_ID;
-  const redirectUri = process.env.GOOGLE_CALLBACK_URL || "http://localhost:3000/auth/google/callback";
+  const redirectUri = process.env.GOOGLE_CALLBACK_URL;
+  const frontendUrl = getFrontendUrl();
 
   if (!clientId) {
     console.warn("Google OAuth Warning: GOOGLE_CLIENT_ID is missing in backend .env");
-    return res.redirect("http://localhost:5173/login?error=" + encodeURIComponent("Google Login is currently unavailable. Please sign in using Email & Password."));
+    return res.redirect(`${frontendUrl}/login?error=` + encodeURIComponent("Google Login is currently unavailable. Please sign in using Email & Password."));
   }
 
   const state = crypto.randomBytes(16).toString("hex");
   res.cookie("oauth_state", state, {
     httpOnly: true,
     maxAge: 10 * 60 * 1000,
-    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
   });
 
   const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
@@ -44,22 +62,23 @@ const googleAuth = (req, res) => {
 const googleCallback = async (req, res) => {
   const { code, state, error } = req.query;
   const savedState = req.cookies?.oauth_state;
+  const frontendUrl = getFrontendUrl();
   res.clearCookie("oauth_state");
 
   if (error) {
-    return res.redirect("http://localhost:5173/login?error=" + encodeURIComponent(`Google Auth Error: ${error}`));
+    return res.redirect(`${frontendUrl}/login?error=` + encodeURIComponent(`Google Auth Error: ${error}`));
   }
 
   if (!state || state !== savedState) {
-    return res.redirect("http://localhost:5173/login?error=" + encodeURIComponent("Invalid OAuth state parameter."));
+    return res.redirect(`${frontendUrl}/login?error=` + encodeURIComponent("Invalid OAuth state parameter."));
   }
 
   if (!code) {
-    return res.redirect("http://localhost:5173/login?error=" + encodeURIComponent("Authorization code missing from Google response."));
+    return res.redirect(`${frontendUrl}/login?error=` + encodeURIComponent("Authorization code missing from Google response."));
   }
 
   try {
-    const redirectUri = process.env.GOOGLE_CALLBACK_URL || "http://localhost:3000/auth/google/callback";
+    const redirectUri = process.env.GOOGLE_CALLBACK_URL;
 
     const tokenRes = await axios.post("https://oauth2.googleapis.com/token", {
       code,
@@ -78,7 +97,7 @@ const googleCallback = async (req, res) => {
     const { email, given_name, family_name, name } = userRes.data;
 
     if (!email) {
-      return res.redirect("http://localhost:5173/login?error=" + encodeURIComponent("Could not retrieve email from Google profile."));
+      return res.redirect(`${frontendUrl}/login?error=` + encodeURIComponent("Could not retrieve email from Google profile."));
     }
 
     const normalizedEmail = email.trim().toLowerCase();
@@ -100,38 +119,33 @@ const googleCallback = async (req, res) => {
 
     const { accessToken: jwtAccessToken, refreshToken: jwtRefreshToken } = authService.generateTokens(user);
 
-    res.cookie("token", jwtAccessToken, {
-      httpOnly: true,
-      maxAge: 15 * 60 * 1000,
-    });
+    res.cookie("token", jwtAccessToken, getCookieOptions(15 * 60 * 1000));
+    res.cookie("refreshToken", jwtRefreshToken, getCookieOptions(7 * 24 * 60 * 60 * 1000));
 
-    res.cookie("refreshToken", jwtRefreshToken, {
-      httpOnly: true,
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
-
-    return res.redirect("http://localhost:5173/");
+    return res.redirect(`${frontendUrl}/`);
   } catch (err) {
     console.error("Google OAuth Error:", err.response?.data || err.message);
     const errMsg = err.response?.data?.error_description || err.message || "Google authentication failed";
-    return res.redirect("http://localhost:5173/login?error=" + encodeURIComponent(errMsg));
+    return res.redirect(`${frontendUrl}/login?error=` + encodeURIComponent(errMsg));
   }
 };
 
 const githubAuth = (req, res) => {
   const clientId = process.env.GITHUB_CLIENT_ID;
-  const redirectUri = process.env.GITHUB_CALLBACK_URL || "http://localhost:3000/auth/github/callback";
+  const redirectUri = process.env.GITHUB_CALLBACK_URL;
+  const frontendUrl = getFrontendUrl();
 
   if (!clientId) {
     console.warn("GitHub OAuth Warning: GITHUB_CLIENT_ID is missing in backend .env");
-    return res.redirect("http://localhost:5173/login?error=" + encodeURIComponent("GitHub Login is currently unavailable. Please sign in using Email & Password."));
+    return res.redirect(`${frontendUrl}/login?error=` + encodeURIComponent("GitHub Login is currently unavailable. Please sign in using Email & Password."));
   }
 
   const state = crypto.randomBytes(16).toString("hex");
   res.cookie("oauth_state", state, {
     httpOnly: true,
     maxAge: 10 * 60 * 1000,
-    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
   });
 
   const githubAuthUrl = `https://github.com/login/oauth/authorize?` +
@@ -146,22 +160,23 @@ const githubAuth = (req, res) => {
 const githubCallback = async (req, res) => {
   const { code, state, error } = req.query;
   const savedState = req.cookies?.oauth_state;
+  const frontendUrl = getFrontendUrl();
   res.clearCookie("oauth_state");
 
   if (error) {
-    return res.redirect("http://localhost:5173/login?error=" + encodeURIComponent(`GitHub Auth Error: ${error}`));
+    return res.redirect(`${frontendUrl}/login?error=` + encodeURIComponent(`GitHub Auth Error: ${error}`));
   }
 
   if (!state || state !== savedState) {
-    return res.redirect("http://localhost:5173/login?error=" + encodeURIComponent("Invalid OAuth state parameter."));
+    return res.redirect(`${frontendUrl}/login?error=` + encodeURIComponent("Invalid OAuth state parameter."));
   }
 
   if (!code) {
-    return res.redirect("http://localhost:5173/login?error=" + encodeURIComponent("Authorization code missing from GitHub response."));
+    return res.redirect(`${frontendUrl}/login?error=` + encodeURIComponent("Authorization code missing from GitHub response."));
   }
 
   try {
-    const redirectUri = process.env.GITHUB_CALLBACK_URL || "http://localhost:3000/auth/github/callback";
+    const redirectUri = process.env.GITHUB_CALLBACK_URL;
 
     const tokenRes = await axios.post(
       "https://github.com/login/oauth/access_token",
@@ -178,7 +193,7 @@ const githubCallback = async (req, res) => {
 
     const accessToken = tokenRes.data.access_token;
     if (!accessToken) {
-      return res.redirect("http://localhost:5173/login?error=" + encodeURIComponent(tokenRes.data.error_description || "Failed to obtain access token from GitHub."));
+      return res.redirect(`${frontendUrl}/login?error=` + encodeURIComponent(tokenRes.data.error_description || "Failed to obtain access token from GitHub."));
     }
 
     const profileRes = await axios.get("https://api.github.com/user", {
@@ -233,21 +248,14 @@ const githubCallback = async (req, res) => {
 
     const { accessToken: jwtAccessToken, refreshToken: jwtRefreshToken } = authService.generateTokens(user);
 
-    res.cookie("token", jwtAccessToken, {
-      httpOnly: true,
-      maxAge: 15 * 60 * 1000,
-    });
+    res.cookie("token", jwtAccessToken, getCookieOptions(15 * 60 * 1000));
+    res.cookie("refreshToken", jwtRefreshToken, getCookieOptions(7 * 24 * 60 * 60 * 1000));
 
-    res.cookie("refreshToken", jwtRefreshToken, {
-      httpOnly: true,
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
-
-    return res.redirect("http://localhost:5173/");
+    return res.redirect(`${frontendUrl}/`);
   } catch (err) {
     console.error("GitHub OAuth Error:", err.response?.data || err.message);
     const errMsg = err.response?.data?.error_description || err.message || "GitHub authentication failed";
-    return res.redirect("http://localhost:5173/login?error=" + encodeURIComponent(errMsg));
+    return res.redirect(`${frontendUrl}/login?error=` + encodeURIComponent(errMsg));
   }
 };
 

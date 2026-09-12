@@ -47,28 +47,18 @@ using namespace std;
 
 class Solution {
 public:
-    int trap(vector<int>& height) {
-        // Write your solution here
-        return 0;
-    }
+    // Write your solution here
 };`,
   java: `import java.util.*;
 
 class Solution {
-    public int trap(int[] height) {
-        // Write your solution here
-        return 0;
-    }
+    // Write your solution here
 }`,
   python: `class Solution:
-    def trap(self, height: list[int]) -> int:
-        # Write your solution here
-        return 0`,
+    # Write your solution here
+    pass`,
   javascript: `class Solution {
-    trap(height) {
-        // Write your solution here
-        return 0;
-    }
+    // Write your solution here
 }`,
 };
 
