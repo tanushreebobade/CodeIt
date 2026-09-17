@@ -1,6 +1,13 @@
 const redisClient = require("../../config/redis");
 const userRepository = require("../../repositories/UserRepository");
 
+const maskEmail = (email) => {
+  if (!email || typeof email !== "string" || !email.includes("@")) return "";
+  const [name, domain] = email.split("@");
+  const visible = name.slice(0, 2);
+  return `${visible}${"*".repeat(Math.max(1, name.length - 2))}@${domain}`;
+};
+
 class LeaderboardService {
   constructor() {
     this.LEADERBOARD_KEY = "leaderboard:global";
@@ -23,7 +30,7 @@ class LeaderboardService {
 
   // Fetch all registered users directly from DB, rank by points and solved problems count
   async getAllRankedUsersFromDB() {
-    const rawUsers = await userRepository.find({}, "firstName lastName emailId problemSolved role createdAt");
+    const rawUsers = await userRepository.findAllWithSolvedProblems();
 
     const users = (rawUsers || []).map((u) => {
       const solvedList = Array.isArray(u.problemSolved) ? u.problemSolved : [];
@@ -45,7 +52,8 @@ class LeaderboardService {
         userId: u._id,
         firstName: u.firstName || "Coder",
         lastName: u.lastName || "",
-        emailId: u.emailId || "",
+        // emails are only used for "is this me" matching on the client; mask them
+        emailId: maskEmail(u.emailId),
         score: solvedList.length,
         solvedCount: solvedList.length,
         points: points,

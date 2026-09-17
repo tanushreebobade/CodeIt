@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const { Schema } = mongoose;
+const env = require("../config/env");
 
 const problemAttemptSchema = new Schema(
   {
@@ -17,12 +18,12 @@ const problemAttemptSchema = new Schema(
 
     runAttempts: {
       type: Number,
-      default: 5,
+      default: env.freeRunAttempts,
     },
 
     submitAttempts: {
       type: Number,
-      default: 1,
+      default: env.freeSubmitAttempts,
     },
 
     solved: {

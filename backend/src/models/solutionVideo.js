@@ -4,13 +4,20 @@ const { Schema } = mongoose;
 const videoSchema = new Schema({
   problemId: {
     type: Schema.Types.ObjectId,
-    ref: 'problem',
-    required: true
+    ref: 'Problem',
+    required: true,
+    index: true
   },
   userId: {
     type: Schema.Types.ObjectId,
-    ref: 'user',
+    ref: 'User',
     required: true,
+  },
+  // 'cloudinary' for signed uploads, 'external' for youtube / direct video links
+  provider: {
+    type: String,
+    enum: ['cloudinary', 'external'],
+    default: 'cloudinary'
   },
   cloudinaryPublicId: {
     type: String,
@@ -26,12 +33,12 @@ const videoSchema = new Schema({
   },
   duration: {
     type: Number,
-    required: true
+    default: 0
   },
 }, {
   timestamps: true
 });
 
-const SolutionVideo = mongoose.model("solutionVideo", videoSchema);
+const SolutionVideo = mongoose.models.solutionVideo || mongoose.model("solutionVideo", videoSchema);
 
 module.exports = SolutionVideo;

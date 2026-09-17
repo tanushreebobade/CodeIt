@@ -1,41 +1,50 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
-const ThemeContext = createContext();
+const ThemeContext = createContext(null);
+
+const readStoredTheme = () => {
+  try {
+    const saved = localStorage.getItem("theme");
+    if (saved === "dark" || saved === "light") return saved;
+  } catch (e) {
+    // storage may be unavailable (private mode); fall through
+  }
+  if (typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: light)").matches) {
+    return "light";
+  }
+  return "dark";
+};
+
+const applyThemeToDOM = (currentTheme) => {
+  document.documentElement.setAttribute("data-theme", currentTheme);
+  document.documentElement.classList.toggle("dark", currentTheme === "dark");
+};
 
 export const ThemeProvider = ({ children }) => {
-  const [theme, setThemeState] = useState(() => {
-    return localStorage.getItem("theme") || "dark";
-  });
-
-  const applyThemeToDOM = (currentTheme) => {
-    document.documentElement.setAttribute("data-theme", currentTheme);
-    if (currentTheme === "dark") {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
-  };
+  const [theme, setThemeState] = useState(readStoredTheme);
 
   useEffect(() => {
     applyThemeToDOM(theme);
-    localStorage.setItem("theme", theme);
+    try {
+      localStorage.setItem("theme", theme);
+    } catch (e) {
+      // ignore storage errors
+    }
   }, [theme]);
 
-  const toggleTheme = () => {
+  const toggleTheme = useCallback(() => {
     setThemeState((prev) => (prev === "dark" ? "light" : "dark"));
-  };
+  }, []);
 
-  const setTheme = (newTheme) => {
+  const setTheme = useCallback((newTheme) => {
     if (newTheme === "dark" || newTheme === "light") {
       setThemeState(newTheme);
     }
-  };
+  }, []);
 
-  return (
-    <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
-      {children}
-    </ThemeContext.Provider>
-  );
+  const value = useMemo(() => ({ theme, toggleTheme, setTheme }), [theme, toggleTheme, setTheme]);
+
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 };
 
 export const useTheme = () => {

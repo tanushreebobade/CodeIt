@@ -1,8 +1,10 @@
 const axios = require("axios");
 const crypto = require("crypto");
 const bcrypt = require("bcrypt");
+const env = require("../config/env");
 const userRepository = require("../repositories/UserRepository");
 const authService = require("../services/auth/AuthService");
+const { setAuthCookies } = require("../utils/cookies");
 
 // sanitize name to fit user schema constraints
 function sanitizeName(str, defaultVal = "Coder") {
@@ -16,37 +18,38 @@ function sanitizeName(str, defaultVal = "Coder") {
 
 // helper: get frontend URL from env
 function getFrontendUrl() {
-  return process.env.FRONTEND_URL || "http://localhost:5173";
+  return env.frontendUrl;
 }
 
-// helper: cookie options — cross-domain safe for Render + Vercel
-function getCookieOptions(maxAgeMs) {
-  const isProduction = process.env.NODE_ENV === "production";
+// default callback urls point at this backend when not configured explicitly
+function getCallbackUrl(provider) {
+  const configured = provider === "google" ? env.google.callbackUrl : env.github.callbackUrl;
+  if (configured) return configured;
+  return `http://localhost:${env.port}/auth/${provider}/callback`;
+}
+
+function stateCookieOptions() {
   return {
     httpOnly: true,
-    maxAge: maxAgeMs,
-    secure: isProduction,
-    sameSite: isProduction ? "none" : "lax",
+    maxAge: 10 * 60 * 1000,
+    secure: env.isProduction,
+    sameSite: env.isProduction ? "none" : "lax",
+    path: "/",
   };
 }
 
 const googleAuth = (req, res) => {
-  const clientId = process.env.GOOGLE_CLIENT_ID;
-  const redirectUri = process.env.GOOGLE_CALLBACK_URL;
+  const clientId = env.google.clientId;
+  const redirectUri = getCallbackUrl("google");
   const frontendUrl = getFrontendUrl();
 
-  if (!clientId) {
+  if (!clientId || !env.google.clientSecret) {
     console.warn("Google OAuth Warning: GOOGLE_CLIENT_ID is missing in backend .env");
     return res.redirect(`${frontendUrl}/login?error=` + encodeURIComponent("Google Login is currently unavailable. Please sign in using Email & Password."));
   }
 
   const state = crypto.randomBytes(16).toString("hex");
-  res.cookie("oauth_state", state, {
-    httpOnly: true,
-    maxAge: 10 * 60 * 1000,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-  });
+  res.cookie("oauth_state", state, stateCookieOptions());
 
   const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
     `client_id=${encodeURIComponent(clientId)}` +
@@ -78,12 +81,12 @@ const googleCallback = async (req, res) => {
   }
 
   try {
-    const redirectUri = process.env.GOOGLE_CALLBACK_URL;
+    const redirectUri = getCallbackUrl("google");
 
     const tokenRes = await axios.post("https://oauth2.googleapis.com/token", {
       code,
-      client_id: process.env.GOOGLE_CLIENT_ID,
-      client_secret: process.env.GOOGLE_CLIENT_SECRET,
+      client_id: env.google.clientId,
+      client_secret: env.google.clientSecret,
       redirect_uri: redirectUri,
       grant_type: "authorization_code",
     });
@@ -119,8 +122,7 @@ const googleCallback = async (req, res) => {
 
     const { accessToken: jwtAccessToken, refreshToken: jwtRefreshToken } = authService.generateTokens(user);
 
-    res.cookie("token", jwtAccessToken, getCookieOptions(15 * 60 * 1000));
-    res.cookie("refreshToken", jwtRefreshToken, getCookieOptions(7 * 24 * 60 * 60 * 1000));
+    setAuthCookies(res, { accessToken: jwtAccessToken, refreshToken: jwtRefreshToken });
 
     return res.redirect(`${frontendUrl}/`);
   } catch (err) {
@@ -131,22 +133,17 @@ const googleCallback = async (req, res) => {
 };
 
 const githubAuth = (req, res) => {
-  const clientId = process.env.GITHUB_CLIENT_ID;
-  const redirectUri = process.env.GITHUB_CALLBACK_URL;
+  const clientId = env.github.clientId;
+  const redirectUri = getCallbackUrl("github");
   const frontendUrl = getFrontendUrl();
 
-  if (!clientId) {
+  if (!clientId || !env.github.clientSecret) {
     console.warn("GitHub OAuth Warning: GITHUB_CLIENT_ID is missing in backend .env");
     return res.redirect(`${frontendUrl}/login?error=` + encodeURIComponent("GitHub Login is currently unavailable. Please sign in using Email & Password."));
   }
 
   const state = crypto.randomBytes(16).toString("hex");
-  res.cookie("oauth_state", state, {
-    httpOnly: true,
-    maxAge: 10 * 60 * 1000,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-  });
+  res.cookie("oauth_state", state, stateCookieOptions());
 
   const githubAuthUrl = `https://github.com/login/oauth/authorize?` +
     `client_id=${encodeURIComponent(clientId)}` +
@@ -176,13 +173,13 @@ const githubCallback = async (req, res) => {
   }
 
   try {
-    const redirectUri = process.env.GITHUB_CALLBACK_URL;
+    const redirectUri = getCallbackUrl("github");
 
     const tokenRes = await axios.post(
       "https://github.com/login/oauth/access_token",
       {
-        client_id: process.env.GITHUB_CLIENT_ID,
-        client_secret: process.env.GITHUB_CLIENT_SECRET,
+        client_id: env.github.clientId,
+        client_secret: env.github.clientSecret,
         code,
         redirect_uri: redirectUri,
       },
@@ -248,8 +245,7 @@ const githubCallback = async (req, res) => {
 
     const { accessToken: jwtAccessToken, refreshToken: jwtRefreshToken } = authService.generateTokens(user);
 
-    res.cookie("token", jwtAccessToken, getCookieOptions(15 * 60 * 1000));
-    res.cookie("refreshToken", jwtRefreshToken, getCookieOptions(7 * 24 * 60 * 60 * 1000));
+    setAuthCookies(res, { accessToken: jwtAccessToken, refreshToken: jwtRefreshToken });
 
     return res.redirect(`${frontendUrl}/`);
   } catch (err) {

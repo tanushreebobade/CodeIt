@@ -139,12 +139,17 @@ CodeIt/
 │   └── package.json
 │
 ├── backend/
-│   ├── controllers/
-│   ├── models/
-│   ├── routes/
-│   ├── middleware/
-│   ├── services/
-│   └── server.js
+│   ├── src/
+│   │   ├── config/        # env, database, seeds
+│   │   ├── controllers/
+│   │   ├── middleware/
+│   │   ├── models/
+│   │   ├── repositories/  # MongoDB with JSON-file fallback
+│   │   ├── routes/
+│   │   ├── services/      # auth, execution engine, submissions, leaderboard
+│   │   └── index.js
+│   ├── scripts/createAdmin.js
+│   └── data/              # local JSON fallback store
 │
 ├── .gitignore
 └── README.md
@@ -154,31 +159,37 @@ CodeIt/
 
 ## 🚀 Getting Started
 
+### 📚 Setup Documentation
+
+We have comprehensive setup guides for different needs:
+
+- **[QUICKSTART.md](./QUICKSTART.md)** - Get running in 5 minutes
+- **[SETUP_GUIDE.md](./SETUP_GUIDE.md)** - Detailed local development setup
+- **[SETUP_CHECKLIST.md](./SETUP_CHECKLIST.md)** - Step-by-step checklist
+- **[DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md)** - Production deployment instructions
+- **[ENV_VARIABLES_REFERENCE.md](./ENV_VARIABLES_REFERENCE.md)** - Environment variables quick reference
+
 ### Prerequisites
 
-* Node.js
+* Node.js (v18 or higher)
 * npm
 * MongoDB / MongoDB Atlas
 * Git
 
-### Clone the Repository
+### Quick Start
 
 ```bash
+# Clone the repository
 git clone https://github.com/tanushreebobade/CodeIt.git
 cd CodeIt
-```
 
-### Backend Setup
-
-```bash
+# Backend setup
 cd backend
 npm install
+# Configure .env file (see SETUP_GUIDE.md)
 npm run dev
-```
 
-### Frontend Setup
-
-```bash
+# Frontend setup (in another terminal)
 cd frontend
 npm install
 npm run dev
@@ -190,26 +201,57 @@ The frontend will run on:
 http://localhost:5173
 ```
 
+**For detailed setup instructions, see [SETUP_GUIDE.md](./SETUP_GUIDE.md)**
+
 ---
 
 ## 🔑 Environment Variables
 
-Create a `.env` file in the backend:
+Copy `backend/.env.example` to `backend/.env` and adjust:
 
 ```env
 PORT=5000
-MONGODB_URI=your_mongodb_connection_string
-GEMINI_API_KEY=your_gemini_api_key
+NODE_ENV=development
+MONGODB_URI=mongodb://127.0.0.1:27017/codeit   # or your MongoDB Atlas URI
 JWT_SECRET=your_jwt_secret
+GEMINI_API_KEY=your_gemini_api_key             # optional, enables the AI Tutor
+FRONTEND_URL=http://localhost:5173
 ```
 
-For the frontend:
+Optional: `GOOGLE_CLIENT_ID/SECRET`, `GITHUB_CLIENT_ID/SECRET` (OAuth), `REDIS_HOST` (token revocation),
+`ONLINE_COMPILER_API_KEY` (remote execution fallback), `FREE_RUN_ATTEMPTS` / `FREE_SUBMIT_ATTEMPTS`.
+
+If MongoDB is unreachable the backend automatically falls back to a JSON store in `backend/data/`.
+
+For the frontend (`frontend/.env`):
 
 ```env
 VITE_API_BASE_URL=http://localhost:5000
 ```
 
 > Never commit API keys, database credentials, or `.env` files to GitHub.
+
+---
+
+## ⚙️ Code Execution
+
+Submissions run with the compilers installed on the server: `g++` (C++), `python`, `javac`/`java` and `node`.
+Install whichever you want to support and they are detected automatically (see `GET /health`).
+Problems use LeetCode-style `class Solution` templates; the execution drivers parse stdin into the
+method arguments and print the return value, so users only implement the method.
+
+---
+
+## 🛡️ Creating an Admin
+
+Admins can author problems from **Admin Studio** (`/admin`). Create the first admin with:
+
+```bash
+cd backend
+npm run create-admin -- admin@example.com yourStrongPassword
+```
+
+or set `ADMIN_EMAIL` / `ADMIN_PASSWORD` in `backend/.env` and the account is created on startup.
 
 ---
 

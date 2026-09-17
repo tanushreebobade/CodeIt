@@ -1,5 +1,6 @@
 const fs = require("fs");
 const path = require("path");
+const env = require("./env");
 
 const DATA_DIR = path.join(__dirname, "../../data");
 if (!fs.existsSync(DATA_DIR)) {
@@ -194,6 +195,18 @@ class LocalDatabase {
     return users[index];
   }
 
+  deleteUser(id) {
+    const users = this.getUsers();
+    const index = users.findIndex((u) => String(u._id) === String(id));
+    if (index === -1) return null;
+    const [removed] = users.splice(index, 1);
+    this.write(this.usersFile, users);
+    // cascade delete submissions and attempts owned by the user
+    this.write(this.submissionsFile, this.getSubmissions().filter((s) => String(s.userId) !== String(id)));
+    this.write(this.attemptsFile, this.getAttempts().filter((a) => String(a.userId) !== String(id)));
+    return removed;
+  }
+
   addSolvedProblem(userId, problemId) {
     const users = this.getUsers();
     const user = users.find((u) => String(u._id) === String(userId));
@@ -241,6 +254,28 @@ class LocalDatabase {
     return newProblem;
   }
 
+  updateProblem(id, updateData) {
+    const problems = this.getProblems();
+    const index = problems.findIndex((p) => String(p._id) === String(id));
+    if (index === -1) return null;
+    problems[index] = {
+      ...problems[index],
+      ...updateData,
+      updatedAt: new Date().toISOString(),
+    };
+    this.write(this.problemsFile, problems);
+    return problems[index];
+  }
+
+  deleteProblem(id) {
+    const problems = this.getProblems();
+    const index = problems.findIndex((p) => String(p._id) === String(id));
+    if (index === -1) return null;
+    const [removed] = problems.splice(index, 1);
+    this.write(this.problemsFile, problems);
+    return removed;
+  }
+
   // Submissions API
   getSubmissions() {
     return this.read(this.submissionsFile);
@@ -273,8 +308,8 @@ class LocalDatabase {
         _id: "att_" + Date.now(),
         userId: String(userId),
         problemId: String(problemId),
-        runAttempts: 10,
-        submitAttempts: 5,
+        runAttempts: env.freeRunAttempts,
+        submitAttempts: env.freeSubmitAttempts,
         solved: false,
       };
       attempts.push(attempt);
@@ -319,8 +354,8 @@ class LocalDatabase {
         _id: "att_" + Date.now(),
         userId: String(userId),
         problemId: String(problemId),
-        runAttempts: 10,
-        submitAttempts: 5,
+        runAttempts: env.freeRunAttempts,
+        submitAttempts: env.freeSubmitAttempts,
         solved: true,
       };
       attempts.push(attempt);

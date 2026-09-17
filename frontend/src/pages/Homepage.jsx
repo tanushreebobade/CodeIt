@@ -7,17 +7,11 @@ import {
   Code2,
   Terminal,
   ArrowRight,
-  CheckCircle2,
   Trophy,
-  Flame,
-  ShieldCheck,
   Layers,
   Cpu,
-  Search,
-  BookOpen,
-  Zap,
-  Users,
-  Tv
+  Tv,
+  CheckCircle2,
 } from "lucide-react";
 import { NavLink } from "react-router";
 import axiosClient from "../utils/axiosClient";
@@ -32,51 +26,60 @@ function Homepage() {
     medium: 0,
     hard: 0,
   });
-  const [userRank, setUserRank] = useState("Unranked");
+  const [userRank, setUserRank] = useState(null);
+  const [leaderboardLoaded, setLeaderboardLoaded] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
+
     async function fetchData() {
-      try {
-        const problemRes = await axiosClient.get("/problem/getAllProblem");
-        if (problemRes.data && Array.isArray(problemRes.data)) {
-          const problems = problemRes.data;
-          setProblemsList(problems);
+      const [problemRes, leaderRes] = await Promise.allSettled([
+        axiosClient.get("/problem/getAllProblem"),
+        axiosClient.get("/leaderboard/global?page=1&limit=5"),
+      ]);
+      if (cancelled) return;
 
-          const e = problems.filter((p) => p.difficulty?.toLowerCase() === "easy").length;
-          const m = problems.filter((p) => p.difficulty?.toLowerCase() === "medium").length;
-          const h = problems.filter((p) => p.difficulty?.toLowerCase() === "hard").length;
-
-          setProblemTotals({
-            easy: e || 0,
-            medium: m || 0,
-            hard: h || 0,
-          });
-        }
-      } catch (err) {
-        console.log("Using fallback problem list", err);
+      if (problemRes.status === "fulfilled" && Array.isArray(problemRes.value.data)) {
+        const problems = problemRes.value.data;
+        setProblemsList(problems);
+        setProblemTotals({
+          easy: problems.filter((p) => p.difficulty?.toLowerCase() === "easy").length,
+          medium: problems.filter((p) => p.difficulty?.toLowerCase() === "medium").length,
+          hard: problems.filter((p) => p.difficulty?.toLowerCase() === "hard").length,
+        });
+      } else if (problemRes.status === "rejected") {
+        console.warn("Using fallback problem list:", problemRes.reason?.message);
       }
 
-      try {
-        const rankRes = await axiosClient.get("/leaderboard/me");
-        if (rankRes.data?.rank) {
-          setUserRank(`#${rankRes.data.rank}`);
-        }
-      } catch (err) {
-        console.log("User rank default", err);
-      }
-
-      try {
-        const leaderRes = await axiosClient.get("/leaderboard/global?page=1&limit=5");
-        if (leaderRes.data?.leaderboard && Array.isArray(leaderRes.data.leaderboard)) {
-          setTopCoders(leaderRes.data.leaderboard);
-        }
-      } catch (err) {
-        console.log("Leaderboard default", err);
+      if (leaderRes.status === "fulfilled" && Array.isArray(leaderRes.value.data?.leaderboard)) {
+        setTopCoders(leaderRes.value.data.leaderboard);
+        setLeaderboardLoaded(true);
       }
     }
 
     fetchData();
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  // the personal rank endpoint needs a session; skip it for guests
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setUserRank(null);
+      return;
+    }
+    let cancelled = false;
+    axiosClient
+      .get("/leaderboard/me")
+      .then((res) => {
+        if (!cancelled && res.data?.rank) setUserRank(res.data);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated]);
 
   const checkIsPremium = (prob) => {
     if (!prob) return false;
@@ -116,14 +119,16 @@ function Homepage() {
     { rank: 4, firstName: "Elena", solvedCount: 98, points: 980 },
   ];
 
-  const leaderboardList = topCoders.length > 0 ? topCoders : fallbackCoders;
+  // only show placeholder coders when the leaderboard could not be loaded at all
+  const leaderboardList = topCoders.length > 0 ? topCoders : leaderboardLoaded ? [] : fallbackCoders;
+  const solvedCount = solvedList.length;
 
   return (
-    <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] font-sans flex flex-col justify-between transition-colors duration-150">
+    <div className="min-h-dvh bg-[var(--bg-primary)] text-[var(--text-primary)] font-sans flex flex-col justify-between transition-colors duration-150">
       <div>
         <Navbar />
 
-        <main className="max-w-7xl mx-auto px-4 lg:px-6 py-8 w-full space-y-14">
+        <main className="max-w-7xl mx-auto px-4 lg:px-6 py-6 sm:py-8 w-full space-y-10 sm:space-y-14">
 
           <section className="text-center space-y-5 pt-2">
 
@@ -141,14 +146,38 @@ function Homepage() {
                 className="bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs px-5 py-2.5 rounded-[6px] transition-all shadow-xs flex items-center gap-2"
               >
                 <span>Start Practicing</span>
-                <ArrowRight className="w-3.5 h-3.5" />
+                <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
               </NavLink>
+              {!isAuthenticated && (
+                <NavLink
+                  to="/signup"
+                  className="bg-[var(--bg-secondary)] border border-[var(--border-subtle)] hover:bg-[var(--bg-tertiary)] text-[var(--text-primary)] font-semibold text-xs px-5 py-2.5 rounded-[6px] transition-colors"
+                >
+                  Create free account
+                </NavLink>
+              )}
             </div>
+
+            {isAuthenticated && (
+              <div className="inline-flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-[var(--text-secondary)] bg-[var(--bg-secondary)] border border-[var(--border-subtle)] rounded-full px-4 py-1.5">
+                <span className="flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" aria-hidden="true" />
+                  <strong className="text-[var(--text-primary)]">{solvedCount}</strong> solved
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <Trophy className="w-3.5 h-3.5 text-amber-400" aria-hidden="true" />
+                  Rank <strong className="text-[var(--text-primary)]">{userRank?.rank ? `#${userRank.rank}` : "unranked"}</strong>
+                </span>
+                <span>
+                  <strong className="text-[var(--text-primary)]">{userRank?.points ?? 0}</strong> pts
+                </span>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-3xl mx-auto pt-6">
               <div className="bg-[var(--bg-secondary)] border border-[var(--border-subtle)] p-3 rounded-[6px] text-center hover:border-sky-500/30 transition-colors">
                 <span className="block text-xl font-bold font-mono text-sky-400">
-                  {problemsList.length > 0 ? `${problemsList.length}+` : "2+"}
+                  {problemsList.length > 0 ? problemsList.length : "—"}
                 </span>
                 <span className="text-[11px] text-[var(--text-muted)] font-medium uppercase tracking-wider">
                   DSA Problems
@@ -156,7 +185,7 @@ function Homepage() {
               </div>
               <div className="bg-[var(--bg-secondary)] border border-[var(--border-subtle)] p-3 rounded-[6px] text-center hover:border-emerald-500/30 transition-colors">
                 <span className="block text-xl font-bold font-mono text-emerald-400">
-                  JS • PY • C++ • JAVA
+                  4
                 </span>
                 <span className="text-[11px] text-[var(--text-muted)] font-medium uppercase tracking-wider">
                   Languages
@@ -164,10 +193,10 @@ function Homepage() {
               </div>
               <div className="bg-[var(--bg-secondary)] border border-[var(--border-subtle)] p-3 rounded-[6px] text-center hover:border-amber-500/30 transition-colors">
                 <span className="block text-xl font-bold font-mono text-amber-400">
-                  O(1) TO O(N)
+                  {problemTotals.easy}/{problemTotals.medium}/{problemTotals.hard}
                 </span>
                 <span className="text-[11px] text-[var(--text-muted)] font-medium uppercase tracking-wider">
-                  Complexity Hints
+                  Easy / Medium / Hard
                 </span>
               </div>
               <div className="bg-[var(--bg-secondary)] border border-[var(--border-subtle)] p-3 rounded-[6px] text-center hover:border-sky-500/30 transition-colors">
@@ -201,7 +230,7 @@ function Homepage() {
               <div className="grid grid-cols-1 md:grid-cols-12 divide-y md:divide-y-0 md:divide-x divide-[var(--border-subtle)] font-mono text-xs">
 
                 <div className="md:col-span-7 p-4 bg-[var(--bg-secondary)] text-[var(--text-primary)] space-y-1 leading-relaxed overflow-x-auto">
-                  <div className="text-[var(--text-muted)]">// 1. Two Sum - Hash Map Approach O(N)</div>
+                  <div className="text-[var(--text-muted)]">{"// 1. Two Sum - Hash Map Approach O(N)"}</div>
                   <div><span className="text-neutral-400">function</span> <span className="font-bold">twoSum</span>(nums, target) &#123;</div>
                   <div className="pl-4"><span className="text-neutral-400">const</span> map = <span className="text-neutral-400">new</span> Map();</div>
                   <div className="pl-4"><span className="text-neutral-400">for</span> (<span className="text-neutral-400">let</span> i = 0; i &lt; nums.length; i++) &#123;</div>
@@ -378,7 +407,7 @@ function Homepage() {
                   <div><span className="text-neutral-400">function</span> <span className="font-bold">twoSum</span>(nums, target) &#123;</div>
                   <div className="pl-4"><span className="text-neutral-400">const</span> map = <span className="text-neutral-400">new</span> Map();</div>
                   <div className="pl-4"><span className="text-neutral-400">for</span> (<span className="text-neutral-400">let</span> i = 0; i &lt; nums.length; i++) &#123;</div>
-                  <div className="pl-8 text-emerald-400">// O(1) hash table complement lookup</div>
+                  <div className="pl-8 text-emerald-400">{"// O(1) hash table complement lookup"}</div>
                   <div className="pl-8"><span className="text-neutral-400">const</span> comp = target - nums[i];</div>
                   <div className="pl-8"><span className="text-neutral-400">if</span> (map.has(comp)) <span className="text-neutral-400">return</span> [map.get(comp), i];</div>
                   <div className="pl-8">map.set(nums[i], i);</div>
@@ -445,7 +474,7 @@ function Homepage() {
                 </div>
               </div>
 
-              <div className="pt-3 border-t border-[var(--border-[#282d44])] flex items-center justify-between">
+              <div className="pt-3 border-t border-[var(--border-subtle)] flex flex-wrap items-center justify-between gap-2">
                 <span className="text-xs text-[var(--text-muted)] font-mono">
                   Topic: {formatTag(potd.category || potd.tags?.[0]) || "DSA Core"}
                 </span>
@@ -470,6 +499,11 @@ function Homepage() {
               </div>
 
               <div className="space-y-2 text-xs">
+                {leaderboardList.length === 0 && (
+                  <p className="text-[var(--text-muted)] text-xs py-6 text-center">
+                    No ranked coders yet. Solve a problem to claim #1!
+                  </p>
+                )}
                 {leaderboardList.slice(0, 4).map((item, idx) => {
                   const name = item.firstName ? `${item.firstName} ${item.lastName || ""}`.trim() : `Coder ${idx + 1}`;
                   const solved = item.score ?? item.solvedCount ?? 0;
@@ -531,9 +565,9 @@ function Homepage() {
               <table className="w-full text-left text-xs">
                 <thead className="bg-[var(--bg-primary)] text-[var(--text-secondary)] font-semibold border-b border-[var(--border-subtle)]">
                   <tr>
-                    <th className="p-3">#</th>
+                    <th className="p-3 hidden sm:table-cell">#</th>
                     <th className="p-3">Title</th>
-                    <th className="p-3">Topic Category</th>
+                    <th className="p-3 hidden md:table-cell">Topic</th>
                     <th className="p-3">Difficulty</th>
                     <th className="p-3 text-right">Action</th>
                   </tr>
@@ -541,13 +575,13 @@ function Homepage() {
                 <tbody className="divide-y divide-[var(--border-subtle)] text-[var(--text-primary)]">
                   {displayProblems.map((prob, idx) => (
                     <tr key={prob._id || idx} className="hover:bg-[var(--bg-primary)] transition-colors">
-                      <td className="p-3 text-[var(--text-muted)] font-mono">{idx + 1}</td>
+                      <td className="p-3 text-[var(--text-muted)] font-mono hidden sm:table-cell">{idx + 1}</td>
                       <td className="p-3 font-semibold">
                         <NavLink to={`/problem/${prob._id}`} className="hover:text-sky-400 transition-colors">
                           {prob.title}
                         </NavLink>
                       </td>
-                      <td className="p-3 text-[var(--text-secondary)] font-mono">
+                      <td className="p-3 text-[var(--text-secondary)] font-mono hidden md:table-cell">
                         <span className="bg-sky-500/10 text-sky-400 px-2.5 py-0.5 rounded-[4px] border border-sky-500/20 text-[11px]">
                           {formatTag(prob.category || prob.tags?.[0]) || "Arrays"}
                         </span>
@@ -579,7 +613,8 @@ function Homepage() {
 
           <section className="bg-[var(--bg-secondary)] border border-[var(--border-subtle)] rounded-[8px] p-8 text-center space-y-4">
             <h2 className="text-2xl sm:text-3xl font-extrabold text-[var(--text-primary)] font-heading">
-              Ready to Level Up Your DSA Skills?            </h2>
+              Ready to Level Up Your DSA Skills?
+            </h2>
             <p className="text-xs sm:text-sm text-[var(--text-secondary)] max-w-xl mx-auto leading-relaxed">
               Practice Data Structures & Algorithms with focused problem-solving and AI-powered guidance.
             </p>

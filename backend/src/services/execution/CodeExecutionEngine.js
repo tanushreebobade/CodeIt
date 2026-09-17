@@ -1,8 +1,10 @@
 const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
+const env = require("../../config/env");
 const { ONLINE_COMPILER_LANGUAGE_MAP } = require("../../constants/executionConstants");
 const { BadRequestError, InternalServerError } = require("../../errors/AppError");
+const { wrapCppIfNeeded, wrapPythonIfNeeded, wrapJavaScriptIfNeeded, wrapJavaIfNeeded } = require("./codeDrivers");
 
 const GLOBAL_COUNTER_FILE = path.join(__dirname, "../../../data/global_counter.json");
 const MAX_GLOBAL_EXECUTIONS = 5000;
@@ -66,121 +68,12 @@ const checkAndConsumeUserCredit = (userId = "default_user") => {
   userCreditTracker.set(key, used + 1);
 };
 
-function parseCppSolutionMethod(code) {
-  const classMatch = code.match(/class\s+Solution\s*\{([\s\S]*?)\};/);
-  const body = classMatch ? classMatch[1] : code;
-
-  const regex = /([A-Za-z0-9_:<>\s\*\&]+?)\s+([A-Za-z_]\w*)\s*\(([^)]*)\)\s*\{/;
-  const match = body.match(regex);
-  if (!match) return null;
-
-  let returnType = match[1].replace(/^(public|private|protected)\s*:\s*/i, '').trim();
-
-  return {
-    returnType,
-    funcName: match[2].trim(),
-    paramsStr: match[3].trim(),
-  };
-}
-
-// wrap solution class if main function is missing
-function wrapCppIfNeeded(code) {
-  if (/\bint\s+main\s*\(/i.test(code) || /\bvoid\s+main\s*\(/i.test(code)) {
-    return code;
-  }
-  if (!/\bclass\s+Solution\b/.test(code)) {
-    return code;
-  }
-
-  const parsed = parseCppSolutionMethod(code);
-  if (!parsed) return code;
-
-  const { returnType, funcName, paramsStr } = parsed;
-  const params = paramsStr ? paramsStr.split(',').map(p => p.trim()) : [];
-  const isBoolReturn = returnType.includes('bool');
-
-  let driver = `\n\n#include <iostream>\n#include <sstream>\n#include <string>\n#include <vector>\n#include <unordered_map>\n#include <algorithm>\n#include <cctype>\nusing namespace std;\n`;
-  driver += `\nint main() {\n    ios_base::sync_with_stdio(false);\n    cin.tie(NULL);\n    cout << boolalpha;\n    Solution sol;\n`;
-  driver += `    string rawInput, line;\n    while (getline(cin, line)) { rawInput += line + " "; }\n`;
-
-  if (params.length === 2 && (params[0].includes('vector<int>') || params[0].includes('vector <int>')) && params[1].includes('int')) {
-    driver += `    vector<int> allNums;\n    string temp = "";\n    for (char c : rawInput) {\n        if (isdigit(c) || c == '-') {\n            temp += c;\n        } else {\n            if (!temp.empty()) {\n                if (temp != "-") allNums.push_back(stoi(temp));\n                temp = "";\n            }\n        }\n    }\n    if (!temp.empty() && temp != "-") allNums.push_back(stoi(temp));\n`;
-    driver += `    vector<int> arg1;\n    int arg2 = 0;\n    if (allNums.size() >= 2) {\n        arg2 = allNums.back();\n        allNums.pop_back();\n        if (allNums.size() > 1 && allNums[0] == (int)allNums.size() - 1) {\n            allNums.erase(allNums.begin());\n        }\n        arg1 = allNums;\n    }\n`;
-    
-    if (returnType.includes('vector')) {
-      driver += `    auto res = sol.${funcName}(arg1, arg2);\n    for (size_t i = 0; i < res.size(); i++) cout << (i == 0 ? "" : " ") << res[i];\n`;
-    } else if (isBoolReturn) {
-      driver += `    cout << (sol.${funcName}(arg1, arg2) ? "true" : "false");\n`;
-    } else {
-      driver += `    cout << sol.${funcName}(arg1, arg2);\n`;
-    }
-  } else if (params.length === 1 && (params[0].includes('vector<int>') || params[0].includes('vector <int>'))) {
-    driver += `    vector<int> arg1;\n    string temp = "";\n    for (char c : rawInput) {\n        if (isdigit(c) || c == '-') {\n            temp += c;\n        } else {\n            if (!temp.empty()) {\n                if (temp != "-") arg1.push_back(stoi(temp));\n                temp = "";\n            }\n        }\n    }\n    if (!temp.empty() && temp != "-") arg1.push_back(stoi(temp));\n`;
-    
-    if (returnType === 'void') {
-      driver += `    sol.${funcName}(arg1);\n`;
-    } else if (returnType.includes('vector')) {
-      driver += `    auto res = sol.${funcName}(arg1);\n    for (size_t i = 0; i < res.size(); i++) cout << (i == 0 ? "" : " ") << res[i];\n`;
-    } else if (isBoolReturn) {
-      driver += `    cout << (sol.${funcName}(arg1) ? "true" : "false");\n`;
-    } else {
-      driver += `    cout << sol.${funcName}(arg1);\n`;
-    }
-  } else if (params.length === 1 && params[0].includes('string')) {
-    driver += `    string arg1 = "";\n    for (char c : rawInput) { if (c != '"' && c != '\\'' && c != '[' && c != ']' && c != ' ') arg1 += c; }\n`;
-    if (isBoolReturn) {
-      driver += `    cout << (sol.${funcName}(arg1) ? "true" : "false");\n`;
-    } else {
-      driver += `    cout << sol.${funcName}(arg1);\n`;
-    }
-  } else {
-    driver += `    vector<int> arg1;\n    string temp = "";\n    for (char c : rawInput) {\n        if (isdigit(c) || c == '-') {\n            temp += c;\n        } else {\n            if (!temp.empty()) {\n                if (temp != "-") arg1.push_back(stoi(temp));\n                temp = "";\n            }\n        }\n    }\n    if (!temp.empty() && temp != "-") arg1.push_back(stoi(temp));\n`;
-    if (isBoolReturn) {
-      driver += `    cout << (sol.${funcName}(arg1) ? "true" : "false");\n`;
-    } else {
-      driver += `    cout << sol.${funcName}(arg1);\n`;
-    }
-  }
-
-  driver += `    return 0;\n}\n`;
-
-  return code + driver;
-}
-
-function wrapPythonIfNeeded(code) {
-  if (/\bif\s+__name__\s*==\s*['"]__main__['"]/.test(code)) {
-    return code;
-  }
-  if (!/\bclass\s+Solution\b/.test(code)) {
-    return code;
-  }
-  const driver = `\n\nimport sys, re\nif __name__ == "__main__":
-    raw = sys.stdin.read().strip()
-    sol = Solution()
-    nums = [int(x) for x in re.findall(r'-?\\d+', raw)]
-    for attr in dir(sol):
-        if not attr.startswith('__') and callable(getattr(sol, attr)):
-            try:
-                res = getattr(sol, attr)(nums)
-                if isinstance(res, bool):
-                    print("true" if res else "false")
-                elif res is not None:
-                    print(res)
-                break
-            except Exception as e:
-                pass
-`;
-  return code + driver;
-}
-
 const wrapCodeIfNeeded = (code, language) => {
   const langKey = String(language).toLowerCase();
-  if (langKey === "cpp" || langKey === "c++" || langKey === "c") {
-    return wrapCppIfNeeded(code);
-  }
-  if (langKey === "python" || langKey === "py") {
-    return wrapPythonIfNeeded(code);
-  }
+  if (langKey === "cpp" || langKey === "c++") return wrapCppIfNeeded(code);
+  if (langKey === "python" || langKey === "py") return wrapPythonIfNeeded(code);
+  if (langKey === "javascript" || langKey === "js" || langKey === "nodejs") return wrapJavaScriptIfNeeded(code);
+  if (langKey === "java") return wrapJavaIfNeeded(code).code;
   return code;
 };
 
@@ -191,7 +84,7 @@ const execute = async (code, language, stdin = "") => {
     throw new BadRequestError(`Unsupported Language: ${language}`);
   }
 
-  const apiKey = process.env.ONLINE_COMPILER_API_KEY;
+  const apiKey = env.onlineCompilerApiKey;
   if (!apiKey) {
     throw new InternalServerError("ONLINE_COMPILER_API_KEY is not configured in environment.");
   }
@@ -227,12 +120,18 @@ const execute = async (code, language, stdin = "") => {
     const outputText = data.output !== undefined ? data.output : (data.stdout || "");
     const errorText = data.error || data.stderr || null;
     const isSuccess = data.status === "success" || data.exit_code === 0;
+    const lowerErr = String(errorText || outputText || "").toLowerCase();
+    let status = isSuccess ? "success" : "runtime_error";
+    if (!isSuccess && (lowerErr.includes("error:") || lowerErr.includes("compilation"))) status = "compile_error";
+    if (lowerErr.includes("time limit") || lowerErr.includes("timed out")) status = "time_limit";
 
     return {
+      status,
       output: outputText,
-      statusCode: isSuccess ? 200 : 400,
+      statusCode: isSuccess ? 200 : status === "time_limit" ? 408 : 400,
       memory: Number(data.memory) || 0,
-      cpuTime: parseFloat(data.time) || parseFloat(data.total) || 0,
+      // api reports seconds; normalise to milliseconds like the local engine
+      cpuTime: Math.round((parseFloat(data.time) || parseFloat(data.total) || 0) * 1000),
       error: errorText,
       raw: data,
     };

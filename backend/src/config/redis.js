@@ -1,15 +1,16 @@
 const { createClient } = require("redis");
+const env = require("./env");
 
-const redisHost = process.env.REDIS_HOST || "127.0.0.1";
-const redisPort = process.env.REDIS_PORT || 6379;
-const redisPass = process.env.REDIS_PASS || undefined;
+// redis is optional: it is only used for token revocation on logout.
+// when REDIS_HOST is not configured we never attempt a connection.
+const redisEnabled = Boolean(env.redisHost);
 
 const redisClient = createClient({
   username: "default",
-  password: redisPass || undefined,
+  password: env.redisPassword || undefined,
   socket: {
-    host: redisHost,
-    port: Number(redisPort),
+    host: env.redisHost || "127.0.0.1",
+    port: env.redisPort,
     connectTimeout: 3000,
     reconnectStrategy: false,
   },
@@ -19,5 +20,7 @@ redisClient.on("error", (err) => {
   // handle redis error event so node doesn't crash
   console.warn("Redis Client Warning:", err.message);
 });
+
+redisClient.isEnabled = redisEnabled;
 
 module.exports = redisClient;

@@ -16,7 +16,7 @@ class UserRepository extends BaseRepository {
   }
 
   async addSolvedProblem(userId, problemId) {
-    if (this.isMongoConnected()) {
+    if (this.isMongoConnected() && this.isValidObjectId(userId) && this.isValidObjectId(problemId)) {
       try {
         return await this.model.findByIdAndUpdate(
           userId,
@@ -30,8 +30,9 @@ class UserRepository extends BaseRepository {
     return localDb.addSolvedProblem(userId, problemId);
   }
 
+  // user without password, with solved problems populated (title/difficulty/tags)
   async getUserProfileWithStats(userId) {
-    if (this.isMongoConnected()) {
+    if (this.isMongoConnected() && this.isValidObjectId(userId)) {
       try {
         return await this.model
           .findById(userId)
@@ -45,6 +46,22 @@ class UserRepository extends BaseRepository {
     if (!user) return null;
     const { password, ...safeUser } = user;
     return safeUser;
+  }
+
+  // all users with solved problems populated, used by the leaderboard
+  async findAllWithSolvedProblems() {
+    if (this.isMongoConnected()) {
+      try {
+        return await this.model
+          .find({})
+          .select("firstName lastName emailId problemSolved role createdAt")
+          .populate("problemSolved", "difficulty")
+          .lean();
+      } catch (err) {
+        console.warn("Mongo findAllWithSolvedProblems failed, using localDb:", err.message);
+      }
+    }
+    return localDb.getUsers();
   }
 }
 

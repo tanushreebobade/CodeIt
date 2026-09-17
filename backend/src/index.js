@@ -1,48 +1,85 @@
+const env = require("./config/env");
 const express = require("express");
-const app = express();
-require("dotenv").config();
 const helmet = require("helmet");
 const cors = require("cors");
-const main = require("./config/db");
 const cookieParser = require("cookie-parser");
+const mongoose = require("mongoose");
+
+const connectDatabase = require("./config/db");
+const redisClient = require("./config/redis");
+const seedInitialProblemsIfEmpty = require("./config/seedProblems");
+const { seedAdminIfConfigured } = require("./config/seedProblems");
 
 const authRouter = require("./routes/userAuth");
-const redisClient = require("./config/redis");
+const oauthRouter = require("./routes/oauthRoute");
 const problemRouter = require("./routes/problemCreate");
 const submissionRouter = require("./routes/submission");
 const profileRouter = require("./routes/userProfile");
 const leaderboardRouter = require("./routes/leaderboard");
 const videoRouter = require("./routes/videoCreator");
 const aiRouter = require("./routes/aiChatting");
-const { errorHandler } = require("./middleware/errorHandler");
+const { errorHandler, notFoundHandler } = require("./middleware/errorHandler");
+const executionService = require("./services/execution/executionService");
 
-const allowedOrigins = [
-  "http://localhost:5173",
-  "http://127.0.0.1:5173",
-  process.env.FRONTEND_URL,
-].filter(Boolean);
+const app = express();
 
-app.use(cors({
-  origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin) || process.env.NODE_ENV !== "production") {
-      callback(null, true);
-    } else {
-      callback(null, true);
-    }
-  },
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"]
-}));
+// ---------------------------------------------------------------- cors ----
+const allowedOrigins = new Set(
+  [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:4173",
+    env.frontendUrl,
+    ...(process.env.ALLOWED_ORIGINS || "").split(",").map((o) => o.trim()),
+  ].filter(Boolean)
+);
 
-app.use(helmet({
-  crossOriginResourcePolicy: { policy: "cross-origin" }
-}));
+app.set("trust proxy", 1);
 
-app.use(express.json());
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // allow same-origin / server-to-server requests without an Origin header
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.has(origin)) return callback(null, true);
+      // in development accept any localhost / lan origin so vite previews work
+      if (!env.isProduction && /^https?:\/\/(localhost|127\.0\.0\.1|10\.|192\.168\.|172\.)/.test(origin)) {
+        return callback(null, true);
+      }
+      return callback(null, false);
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+  })
+);
+
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  })
+);
+
+app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 app.use(cookieParser());
 
+// -------------------------------------------------------------- routes ----
+app.get(["/", "/health", "/api/health"], (req, res) => {
+  res.json({
+    success: true,
+    service: "codeit-api",
+    status: "ok",
+    database: mongoose.connection.readyState === 1 ? "mongodb" : "local-json-fallback",
+    redis: redisClient.isOpen ? "connected" : "disabled",
+    ai: Boolean(env.geminiApiKey),
+    executionLanguages: executionService.availableLanguages(),
+    uptime: Math.round(process.uptime()),
+  });
+});
+
 app.use("/user", authRouter);
+app.use("/auth", oauthRouter);
 app.use("/profile", profileRouter);
 app.use("/problem", problemRouter);
 app.use("/submission", submissionRouter);
@@ -50,35 +87,62 @@ app.use("/leaderboard", leaderboardRouter);
 app.use("/video", videoRouter);
 app.use("/ai", aiRouter);
 
+app.use(notFoundHandler);
 app.use(errorHandler);
 
-const InitalizeConnection = async () => {
-  const port = process.env.PORT || 3000;
-
+// ------------------------------------------------------------- startup ----
+const initializeConnection = async () => {
   try {
-    await main();
-    console.log("MongoDB Connected successfully");
-    const seedInitialProblemsIfEmpty = require("./config/seedProblems");
+    await connectDatabase();
+    console.log(`MongoDB connected (${mongoose.connection.name})`);
     await seedInitialProblemsIfEmpty();
+    await seedAdminIfConfigured();
   } catch (err) {
-    console.error("MongoDB Connection Error:", err.message);
+    console.error("MongoDB connection error:", err.message);
+    console.warn("Continuing with the local JSON data store in backend/data");
   }
 
-  try {
-    await redisClient.connect();
-    console.log("Redis Connected successfully");
-  } catch (err) {
-    console.warn("Redis Connection Failed (continuing without Redis):", err.message);
+  if (redisClient.isEnabled) {
     try {
-      await redisClient.disconnect();
-    } catch (e) {
-      // ignore
+      await redisClient.connect();
+      console.log("Redis connected");
+    } catch (err) {
+      console.warn("Redis connection failed (continuing without Redis):", err.message);
+      try {
+        await redisClient.disconnect();
+      } catch (e) {
+        // ignore
+      }
     }
   }
 
-  app.listen(port, () => {
-    console.log("Server listening at port number: " + port);
+  const languages = executionService.availableLanguages();
+  if (languages.length === 0) {
+    console.warn("No code execution engine available: install g++/python/java or set ONLINE_COMPILER_API_KEY");
+  } else {
+    console.log(`Code execution available for: ${languages.join(", ")}`);
+  }
+  if (!env.geminiApiKey) {
+    console.warn("GEMINI_API_KEY not set: the AI Tutor endpoint will return 503");
+  }
+
+  const server = app.listen(env.port, () => {
+    console.log(`Server listening on http://localhost:${env.port}`);
   });
+
+  const shutdown = () => {
+    console.log("Shutting down...");
+    server.close(() => process.exit(0));
+    setTimeout(() => process.exit(0), 3000).unref();
+  };
+  process.on("SIGINT", shutdown);
+  process.on("SIGTERM", shutdown);
 };
 
-InitalizeConnection();
+process.on("unhandledRejection", (reason) => {
+  console.error("Unhandled promise rejection:", reason);
+});
+
+initializeConnection();
+
+module.exports = app;

@@ -1,6 +1,6 @@
 const userRepository = require("../../repositories/UserRepository");
 const submissionRepository = require("../../repositories/SubmissionRepository");
-const { NotFoundError } = require("../../errors/AppError");
+const { NotFoundError, BadRequestError } = require("../../errors/AppError");
 
 class ProfileService {
   async getUserProfile(userId) {
@@ -9,7 +9,7 @@ class ProfileService {
       throw new NotFoundError("User profile not found");
     }
 
-    const { password, refreshToken, ...userProfile } = user.toObject ? user.toObject() : user;
+    const { password, refreshToken, problemAttempts, ...userProfile } = user.toObject ? user.toObject() : user;
     return userProfile;
   }
 
@@ -53,18 +53,40 @@ class ProfileService {
     const allowedFields = ["firstName", "lastName", "age"];
     const filteredUpdate = {};
 
-    Object.keys(updateData).forEach((key) => {
+    Object.keys(updateData || {}).forEach((key) => {
       if (allowedFields.includes(key)) {
         filteredUpdate[key] = updateData[key];
       }
     });
+
+    if (typeof filteredUpdate.firstName === "string") {
+      filteredUpdate.firstName = filteredUpdate.firstName.trim();
+      if (filteredUpdate.firstName.length < 2 || filteredUpdate.firstName.length > 50) {
+        throw new BadRequestError("First name must be between 2 and 50 characters");
+      }
+    }
+    if (typeof filteredUpdate.lastName === "string") {
+      filteredUpdate.lastName = filteredUpdate.lastName.trim().slice(0, 50);
+    }
+    if (filteredUpdate.age !== undefined && filteredUpdate.age !== null && filteredUpdate.age !== "") {
+      const age = Number(filteredUpdate.age);
+      if (!Number.isInteger(age) || age < 6 || age > 120) {
+        throw new BadRequestError("Age must be a whole number between 6 and 120");
+      }
+      filteredUpdate.age = age;
+    } else {
+      delete filteredUpdate.age;
+    }
+    if (Object.keys(filteredUpdate).length === 0) {
+      throw new BadRequestError("Nothing to update");
+    }
 
     const updatedUser = await userRepository.updateById(userId, filteredUpdate);
     if (!updatedUser) {
       throw new NotFoundError("User not found");
     }
 
-    const { password, refreshToken, ...userProfile } = updatedUser.toObject
+    const { password, refreshToken, problemAttempts, ...userProfile } = updatedUser.toObject
       ? updatedUser.toObject()
       : updatedUser;
     return userProfile;

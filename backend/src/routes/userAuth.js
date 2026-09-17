@@ -6,6 +6,7 @@ const {
   refreshToken,
   logout,
   adminRegister,
+  checkSession,
   getProfile,
   deleteProfile,
 } = require("../controllers/userAuthent");
@@ -21,23 +22,8 @@ authRouter.post("/refresh-token", refreshToken);
 authRouter.post("/logout", logout);
 authRouter.post("/admin/register", adminMiddleware, validate(registerSchema), adminRegister);
 
+authRouter.get("/check", userMiddleware, checkSession);
 authRouter.get("/profile", userMiddleware, getProfile);
 authRouter.delete("/deleteProfile", userMiddleware, deleteProfile);
-
-authRouter.get('/check', userMiddleware, (req, res) => {
-  const reply = {
-    firstName: req.result.firstName,
-    lastName: req.result.lastName,
-    emailId: req.result.emailId,
-    _id: req.result._id,
-    role: req.result.role,
-    problemSolved: req.result.problemSolved || [],
-  };
-
-  res.status(200).json({
-    user: reply,
-    message: "Valid User"
-  });
-});
 
 module.exports = authRouter;

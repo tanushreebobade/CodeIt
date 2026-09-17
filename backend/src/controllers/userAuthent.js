@@ -2,35 +2,19 @@ const authService = require("../services/auth/AuthService");
 const userRepository = require("../repositories/UserRepository");
 const submissionRepository = require("../repositories/SubmissionRepository");
 const { asyncHandler } = require("../middleware/errorHandler");
-
-// helper: cookie options — cross-domain safe for Render + Vercel
-function getCookieOptions(maxAgeMs) {
-  const isProduction = process.env.NODE_ENV === "production";
-  return {
-    httpOnly: true,
-    maxAge: maxAgeMs,
-    secure: isProduction,
-    sameSite: isProduction ? "none" : "lax",
-  };
-}
+const { setAuthCookies, clearAuthCookies, serializeUser } = require("../utils/cookies");
+const { NotFoundError } = require("../errors/AppError");
 
 const register = asyncHandler(async (req, res) => {
   const { user, accessToken, refreshToken } = await authService.registerUser(req.body);
 
-  res.cookie("token", accessToken, getCookieOptions(15 * 60 * 1000));
-  res.cookie("refreshToken", refreshToken, getCookieOptions(7 * 24 * 60 * 60 * 1000));
+  setAuthCookies(res, { accessToken, refreshToken });
 
   return res.status(201).json({
     success: true,
     message: "Registration successful",
     token: accessToken,
-    user: {
-      _id: user._id,
-      firstName: user.firstName,
-      emailId: user.emailId,
-      role: user.role,
-      problemSolved: user.problemSolved || [],
-    },
+    user: serializeUser(user),
   });
 });
 
@@ -38,32 +22,26 @@ const login = asyncHandler(async (req, res) => {
   const { emailId, password } = req.body;
   const { user, accessToken, refreshToken } = await authService.loginUser(emailId, password);
 
-  res.cookie("token", accessToken, getCookieOptions(15 * 60 * 1000));
-  res.cookie("refreshToken", refreshToken, getCookieOptions(7 * 24 * 60 * 60 * 1000));
+  setAuthCookies(res, { accessToken, refreshToken });
 
   return res.status(200).json({
     success: true,
-    message: "Login Successfully",
+    message: "Login successful",
     token: accessToken,
-    user: {
-      _id: user._id,
-      firstName: user.firstName,
-      emailId: user.emailId,
-      role: user.role,
-      problemSolved: user.problemSolved || [],
-    },
+    user: serializeUser(user),
   });
 });
 
 const refreshToken = asyncHandler(async (req, res) => {
   const token = req.cookies.refreshToken || req.body.refreshToken;
-  const { accessToken } = await authService.refreshAccessToken(token);
+  const { accessToken, user } = await authService.refreshAccessToken(token);
 
-  res.cookie("token", accessToken, getCookieOptions(15 * 60 * 1000));
+  setAuthCookies(res, { accessToken });
 
   return res.status(200).json({
     success: true,
     token: accessToken,
+    user: serializeUser(user),
   });
 });
 
@@ -73,31 +51,31 @@ const logout = asyncHandler(async (req, res) => {
     await authService.logoutUser(token);
   }
 
-  const isProduction = process.env.NODE_ENV === "production";
-  const clearOptions = {
-    httpOnly: true,
-    secure: isProduction,
-    sameSite: isProduction ? "none" : "lax",
-  };
-
-  res.clearCookie("token", clearOptions);
-  res.clearCookie("refreshToken", clearOptions);
+  clearAuthCookies(res);
   return res.status(200).json({
     success: true,
-    message: "Logged Out Successfully",
+    message: "Logged out successfully",
   });
 });
 
 const adminRegister = asyncHandler(async (req, res) => {
-  const { accessToken, refreshToken } = await authService.registerAdmin(req.body);
+  const { user } = await authService.registerAdmin(req.body);
 
-  res.cookie("token", accessToken, getCookieOptions(15 * 60 * 1000));
-  res.cookie("refreshToken", refreshToken, getCookieOptions(7 * 24 * 60 * 60 * 1000));
-
+  // the calling admin stays signed in; do not overwrite their cookies
   return res.status(201).json({
     success: true,
-    message: "User Registered Successfully",
-    token: accessToken,
+    message: "Admin account created successfully",
+    user: serializeUser(user),
+  });
+});
+
+// current user with populated solved problems (used by the frontend session check)
+const checkSession = asyncHandler(async (req, res) => {
+  const user = await userRepository.getUserProfileWithStats(req.result._id);
+  return res.status(200).json({
+    success: true,
+    user: serializeUser(user || req.result),
+    message: "Valid User",
   });
 });
 
@@ -106,29 +84,26 @@ const getProfile = asyncHandler(async (req, res) => {
   const user = await userRepository.getUserProfileWithStats(userId);
 
   if (!user) {
-    return res.status(404).json({
-      success: false,
-      message: "User not found",
-    });
+    throw new NotFoundError("User not found");
   }
 
   const stats = await submissionRepository.getSubmissionStatsByUser(userId);
 
   const difficultyCounts = { easy: 0, medium: 0, hard: 0 };
-  if (user.problemSolved && Array.isArray(user.problemSolved)) {
-    user.problemSolved.forEach((problem) => {
-      if (problem.difficulty && difficultyCounts[problem.difficulty] !== undefined) {
-        difficultyCounts[problem.difficulty]++;
-      }
-    });
-  }
+  const solved = Array.isArray(user.problemSolved) ? user.problemSolved : [];
+  solved.forEach((problem) => {
+    const difficulty = problem && problem.difficulty ? String(problem.difficulty).toLowerCase() : null;
+    if (difficulty && difficultyCounts[difficulty] !== undefined) {
+      difficultyCounts[difficulty]++;
+    }
+  });
 
   return res.status(200).json({
     success: true,
-    user,
+    user: serializeUser(user),
     stats: {
       ...stats,
-      totalSolved: user.problemSolved.length,
+      totalSolved: solved.length,
       difficultyCounts,
     },
   });
@@ -137,16 +112,10 @@ const getProfile = asyncHandler(async (req, res) => {
 const deleteProfile = asyncHandler(async (req, res) => {
   const userId = req.result._id;
 
+  await submissionRepository.deleteByUser(userId);
   await userRepository.deleteById(userId);
 
-  const Submission = require("../models/submission");
-  await Submission.deleteMany({ userId });
-
-  const SolutionVideo = require("../models/solutionVideo");
-  await SolutionVideo.deleteMany({ userId });
-
-  res.cookie("token", null, { expires: new Date(Date.now()) });
-  res.cookie("refreshToken", null, { expires: new Date(Date.now()) });
+  clearAuthCookies(res);
 
   return res.status(200).json({
     success: true,
@@ -160,6 +129,7 @@ module.exports = {
   refreshToken,
   logout,
   adminRegister,
+  checkSession,
   getProfile,
   deleteProfile,
 };
