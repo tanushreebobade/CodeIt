@@ -1,11 +1,11 @@
-const { AppError } = require("../errors/AppError");
+const env = require("../config/env");
 
 const errorHandler = (err, req, res, next) => {
   let statusCode = err.statusCode || 500;
   let message = err.message || "Internal Server Error";
   let details = err.details || null;
 
-  if (err.name === "ValidationError") {
+  if (err.name === "ValidationError" && err.errors) {
     statusCode = 400;
     message = "Validation Error";
     details = Object.values(err.errors).map((e) => e.message);
@@ -18,8 +18,18 @@ const errorHandler = (err, req, res, next) => {
 
   if (err.code === 11000) {
     statusCode = 409;
-    const field = Object.keys(err.keyValue)[0];
+    const field = Object.keys(err.keyValue || {})[0] || "field";
     message = `Duplicate value for field: ${field}`;
+  }
+
+  if (err.type === "entity.parse.failed") {
+    statusCode = 400;
+    message = "Malformed JSON in request body";
+  }
+
+  if (err.type === "entity.too.large") {
+    statusCode = 413;
+    message = "Request body is too large";
   }
 
   if (err.message && err.message.includes("buffering timed out")) {
@@ -37,16 +47,30 @@ const errorHandler = (err, req, res, next) => {
     message = "Authentication token expired";
   }
 
-  console.error(`[ERROR] ${req.method} ${req.originalUrl} - ${statusCode}: ${message}`);
-  if (statusCode === 500) {
+  if (statusCode >= 500) {
+    console.error(`[ERROR] ${req.method} ${req.originalUrl} - ${statusCode}: ${message}`);
     console.error(err);
+  } else if (!env.isProduction) {
+    console.warn(`[WARN] ${req.method} ${req.originalUrl} - ${statusCode}: ${message}`);
+  }
+
+  if (res.headersSent) {
+    return next(err);
   }
 
   return res.status(statusCode).json({
     success: false,
     message,
     ...(details && { details }),
-    ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
+    ...(!env.isProduction && statusCode >= 500 && { stack: err.stack }),
+  });
+};
+
+// json 404 for unknown api routes
+const notFoundHandler = (req, res) => {
+  res.status(404).json({
+    success: false,
+    message: `Route ${req.method} ${req.originalUrl} not found`,
   });
 };
 
@@ -57,5 +81,6 @@ const asyncHandler = (fn) => (req, res, next) => {
 
 module.exports = {
   errorHandler,
+  notFoundHandler,
   asyncHandler,
 };

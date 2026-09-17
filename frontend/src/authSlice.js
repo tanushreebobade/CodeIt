@@ -10,6 +10,13 @@ const extractErrorMessage = (payload, defaultMsg = 'Something went wrong') => {
   return defaultMsg;
 };
 
+const toRejectPayload = (error) => {
+  if (error.code === 'ERR_NETWORK') {
+    return { message: 'Cannot reach the server. Please make sure the backend is running.' };
+  }
+  return error.response?.data || { message: error.message };
+};
+
 export const registerUser = createAsyncThunk(
   'auth/register',
   async (userData, { rejectWithValue }) => {
@@ -17,7 +24,7 @@ export const registerUser = createAsyncThunk(
       const response = await axiosClient.post('/user/register', userData);
       return response.data.user;
     } catch (error) {
-      return rejectWithValue(error.response?.data || { message: error.message });
+      return rejectWithValue(toRejectPayload(error));
     }
   }
 );
@@ -29,7 +36,7 @@ export const loginUser = createAsyncThunk(
       const response = await axiosClient.post('/user/login', credentials);
       return response.data.user;
     } catch (error) {
-      return rejectWithValue(error.response?.data || { message: error.message });
+      return rejectWithValue(toRejectPayload(error));
     }
   }
 );
@@ -44,7 +51,7 @@ export const checkAuth = createAsyncThunk(
       if (error.response?.status === 401) {
         return rejectWithValue(null);
       }
-      return rejectWithValue(error.response?.data || { message: error.message });
+      return rejectWithValue(toRejectPayload(error));
     }
   }
 );
@@ -56,7 +63,7 @@ export const logoutUser = createAsyncThunk(
       await axiosClient.post('/user/logout');
       return null;
     } catch (error) {
-      return rejectWithValue(error.response?.data || { message: error.message });
+      return rejectWithValue(toRejectPayload(error));
     }
   }
 );
@@ -66,6 +73,9 @@ const authSlice = createSlice({
   initialState: {
     user: null,
     isAuthenticated: false,
+    // true once the initial session check has finished (success or failure)
+    initialized: false,
+    // true while a login/register/logout request is in flight
     loading: false,
     error: null,
   },
@@ -73,17 +83,24 @@ const authSlice = createSlice({
     clearError: (state) => {
       state.error = null;
     },
+    // merge fresh profile data (e.g. after editing the profile)
+    updateUser: (state, action) => {
+      if (state.user && action.payload) {
+        state.user = { ...state.user, ...action.payload };
+      }
+    },
     addSolvedProblemId: (state, action) => {
       if (state.user) {
         if (!state.user.problemSolved) {
           state.user.problemSolved = [];
         }
-        const problemId = String(action.payload);
+        const payload = action.payload;
+        const problemId = String(typeof payload === "object" && payload !== null ? (payload._id || payload) : payload);
         const exists = state.user.problemSolved.some(
           (p) => String(typeof p === "object" && p !== null ? (p._id || p) : p) === problemId
         );
         if (!exists) {
-          state.user.problemSolved.push(action.payload);
+          state.user.problemSolved.push(payload);
         }
       }
     },
@@ -119,23 +136,22 @@ const authSlice = createSlice({
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.loading = false;
-        state.error = extractErrorMessage(action.payload, 'Invalid email or password.');
+        state.error = extractErrorMessage(action.payload, 'Login failed. Please check your credentials.');
         state.isAuthenticated = false;
         state.user = null;
       })
 
       .addCase(checkAuth.pending, (state) => {
-        state.loading = true;
         state.error = null;
       })
       .addCase(checkAuth.fulfilled, (state, action) => {
-        state.loading = false;
+        state.initialized = true;
         state.isAuthenticated = !!action.payload;
         state.user = action.payload;
         state.error = null;
       })
       .addCase(checkAuth.rejected, (state) => {
-        state.loading = false;
+        state.initialized = true;
         state.error = null;
         state.isAuthenticated = false;
         state.user = null;
@@ -151,14 +167,14 @@ const authSlice = createSlice({
         state.isAuthenticated = false;
         state.error = null;
       })
-      .addCase(logoutUser.rejected, (state, action) => {
+      .addCase(logoutUser.rejected, (state) => {
         state.loading = false;
-        state.error = extractErrorMessage(action.payload, 'Logout failed.');
+        state.error = null;
         state.isAuthenticated = false;
         state.user = null;
       });
   },
 });
 
-export const { clearError, addSolvedProblemId } = authSlice.actions;
+export const { clearError, addSolvedProblemId, updateUser } = authSlice.actions;
 export default authSlice.reducer;

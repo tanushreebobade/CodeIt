@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const BaseRepository = require("./BaseRepository");
 const ProblemAttempt = require("../models/problemAttempt");
 const localDb = require("../config/localDb");
+const env = require("../config/env");
 
 function isValidObjectId(id) {
   if (!id) return false;
@@ -21,8 +22,8 @@ class AttemptRepository extends BaseRepository {
           attempt = await this.create({
             userId,
             problemId,
-            runAttempts: 10,
-            submitAttempts: 5,
+            runAttempts: env.freeRunAttempts,
+            submitAttempts: env.freeSubmitAttempts,
             solved: false,
           });
         }
@@ -83,7 +84,10 @@ class AttemptRepository extends BaseRepository {
       try {
         return await this.model.findOneAndUpdate(
           { userId, problemId },
-          { solved: true },
+          {
+            $set: { solved: true },
+            $setOnInsert: { runAttempts: env.freeRunAttempts, submitAttempts: env.freeSubmitAttempts },
+          },
           { returnDocument: "after", upsert: true }
         );
       } catch (err) {

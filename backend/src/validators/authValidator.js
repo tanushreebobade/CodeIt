@@ -5,8 +5,8 @@ const registerSchema = Joi.object({
     "string.empty": "First name is required",
     "string.min": "First name must be at least 2 characters long",
   }),
-  lastName: Joi.string().trim().max(50).allow("", null),
-  emailId: Joi.string().trim().email().required().messages({
+  lastName: Joi.string().trim().max(50).allow("", null).optional(),
+  emailId: Joi.string().trim().email({ tlds: { allow: false } }).required().messages({
     "string.email": "Please provide a valid email address",
     "string.empty": "Email address is required",
   }),
@@ -14,11 +14,11 @@ const registerSchema = Joi.object({
     "string.min": "Password must be at least 8 characters long",
     "string.empty": "Password is required",
   }),
-  age: Joi.number().integer().min(10).max(120).optional(),
+  age: Joi.number().integer().min(6).max(120).optional(),
 });
 
 const loginSchema = Joi.object({
-  emailId: Joi.string().trim().email().required().messages({
+  emailId: Joi.string().trim().email({ tlds: { allow: false } }).required().messages({
     "string.email": "Please provide a valid email address",
     "string.empty": "Email address is required",
   }),

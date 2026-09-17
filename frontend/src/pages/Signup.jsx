@@ -3,76 +3,99 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useDispatch, useSelector } from 'react-redux';
-import { useNavigate, NavLink } from 'react-router';
+import { useNavigate, NavLink, useLocation } from 'react-router';
 import { registerUser, clearError } from '../authSlice';
 import { Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import AuthRightSection from '../components/AuthRightSection';
 import CodeItRocketLogo from '../components/CodeItRocketLogo';
+import SocialLoginButtons from '../components/SocialLoginButtons';
+import { getPostAuthRedirect } from '../utils/authRedirect';
 
 const signupSchema = z.object({
-  firstName: z.string().min(2, 'Name must be at least 2 characters'),
-  emailId: z.string().email('Please enter a valid email address'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  firstName: z.string().trim().min(2, 'First name must be at least 2 characters').max(50, 'First name is too long'),
+  lastName: z.string().trim().max(50, 'Last name is too long').optional().or(z.literal('')),
+  emailId: z.string().trim().email('Please enter a valid email address'),
+  password: z.string().min(8, 'Password must be at least 8 characters').max(100, 'Password is too long'),
   confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ['confirmPassword'],
 });
 
+const inputClass = (hasError) =>
+  `w-full bg-[var(--bg-secondary)] border ${
+    hasError ? 'border-rose-500/60' : 'border-[var(--border-subtle)] focus:border-sky-500'
+  } text-[var(--text-primary)] text-sm rounded-[6px] px-3.5 py-2.5 placeholder-[var(--text-muted)] focus:outline-none transition-colors duration-200`;
+
+const FieldError = ({ id, message }) =>
+  message ? (
+    <span id={id} className="text-rose-500 text-xs mt-1 block font-medium">
+      {message}
+    </span>
+  ) : null;
+
 function Signup() {
   const [showPassword, setShowPassword] = useState(false);
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
   const { isAuthenticated, loading, error: reduxError } = useSelector((state) => state.auth);
 
-  const { register, handleSubmit, formState: { errors } } = useForm({
+  const { register, handleSubmit, watch, formState: { errors } } = useForm({
     resolver: zodResolver(signupSchema),
   });
 
+  const passwordValue = watch('password') || '';
+
   useEffect(() => {
     dispatch(clearError());
+    return () => dispatch(clearError());
+  }, [dispatch]);
+
+  useEffect(() => {
     if (isAuthenticated) {
-      const params = new URLSearchParams(window.location.search);
-      const redirectToParam = params.get('redirectTo');
-      const savedRedirect = sessionStorage.getItem('redirectAfterAuth');
-      const targetUrl = redirectToParam || savedRedirect || '/';
-      sessionStorage.removeItem('redirectAfterAuth');
-      navigate(targetUrl, { replace: true });
+      navigate(getPostAuthRedirect(location.search), { replace: true });
       return;
     }
-
-    const params = new URLSearchParams(window.location.search);
+    const params = new URLSearchParams(location.search);
     const oauthError = params.get('error');
     if (oauthError) {
-      toast.error(oauthError, { id: 'oauth-error' });
-      window.history.replaceState({}, document.title, window.location.pathname);
+      toast.error(oauthError, { id: 'oauth-error', duration: 6000 });
+      window.history.replaceState({}, document.title, location.pathname);
     }
-  }, [isAuthenticated, navigate, dispatch]);
+  }, [isAuthenticated, navigate, location.search, location.pathname]);
 
   const onSubmit = async (data) => {
-    const { confirmPassword, ...registerData } = data;
+    const { confirmPassword, lastName, ...registerData } = data;
+    if (lastName && lastName.trim()) registerData.lastName = lastName.trim();
     const resultAction = await dispatch(registerUser(registerData));
     if (registerUser.fulfilled.match(resultAction)) {
-      const params = new URLSearchParams(window.location.search);
-      const redirectToParam = params.get('redirectTo');
-      const savedRedirect = sessionStorage.getItem('redirectAfterAuth');
-      const targetUrl = redirectToParam || savedRedirect || '/';
-      sessionStorage.removeItem('redirectAfterAuth');
-      navigate(targetUrl, { replace: true });
+      toast.success('Account created. Happy coding!');
+      navigate(getPostAuthRedirect(location.search), { replace: true });
     }
-  };
-
-  const handleSocialLogin = (provider) => {
-    // OAuth coming soon
   };
 
   const displayError = typeof reduxError === 'string' ? reduxError : reduxError?.message;
+  const redirectTarget = getPostAuthRedirect(location.search);
+
+  // simple strength meter: length + character variety
+  const strength = (() => {
+    if (!passwordValue) return 0;
+    let score = 0;
+    if (passwordValue.length >= 8) score++;
+    if (passwordValue.length >= 12) score++;
+    if (/[A-Z]/.test(passwordValue) && /[a-z]/.test(passwordValue)) score++;
+    if (/\d/.test(passwordValue) || /[^A-Za-z0-9]/.test(passwordValue)) score++;
+    return score;
+  })();
+  const strengthLabel = ['', 'Weak', 'Fair', 'Good', 'Strong'][strength];
+  const strengthColor = ['', 'bg-rose-500', 'bg-amber-500', 'bg-sky-500', 'bg-emerald-500'][strength];
 
   return (
-    <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] flex items-center justify-center p-4 sm:p-6 lg:p-10 font-sans">
+    <div className="min-h-dvh bg-[var(--bg-primary)] text-[var(--text-primary)] flex items-center justify-center px-4 py-8 sm:p-6 lg:p-10 font-sans">
       <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
-        <div className="lg:col-span-5 flex flex-col justify-between py-2 px-1 sm:px-4">
+        <div className="lg:col-span-5 flex flex-col justify-between py-2 px-0 sm:px-4 w-full max-w-md mx-auto lg:max-w-none">
           <div className="mb-6">
             <NavLink to="/" className="inline-flex items-center gap-2.5 text-[var(--text-primary)] font-bold text-xl tracking-tight group">
               <CodeItRocketLogo className="w-8 h-8" />
@@ -90,107 +113,125 @@ function Signup() {
           </div>
 
           {displayError && (
-            <div className="p-3 bg-neutral-900 border border-neutral-700 text-neutral-200 text-xs rounded-[6px] mb-5 flex items-center gap-2.5 shadow-sm">
-              <AlertCircle className="w-4 h-4 shrink-0 text-neutral-400" />
+            <div role="alert" className="p-3 bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-300 text-xs rounded-[6px] mb-5 flex items-center gap-2.5">
+              <AlertCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
               <span>{displayError}</span>
             </div>
           )}
 
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-3.5">
-            <div>
-              <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
-                Full Name
-              </label>
-              <input
-                type="text"
-                placeholder="Username"
-                className={`w-full bg-[var(--bg-secondary)] border ${errors.firstName ? 'border-neutral-500' : 'border-[var(--border-subtle)] focus:border-neutral-400'
-                  } text-[var(--text-primary)] text-sm rounded-[6px] px-3.5 py-2 placeholder-[var(--text-muted)] focus:outline-none transition-all duration-200`}
-                {...register('firstName')}
-              />
-              {errors.firstName && (
-                <span className="text-neutral-400 text-xs mt-1 block font-medium">
-                  {errors.firstName.message}
-                </span>
-              )}
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-3.5" noValidate>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label htmlFor="signup-first" className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
+                  First name
+                </label>
+                <input
+                  id="signup-first"
+                  type="text"
+                  autoComplete="given-name"
+                  placeholder="Ada"
+                  aria-invalid={!!errors.firstName}
+                  aria-describedby={errors.firstName ? "signup-first-error" : undefined}
+                  className={inputClass(errors.firstName)}
+                  {...register('firstName')}
+                />
+                <FieldError id="signup-first-error" message={errors.firstName?.message} />
+              </div>
+              <div>
+                <label htmlFor="signup-last" className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
+                  Last name <span className="font-normal text-[var(--text-muted)]">(optional)</span>
+                </label>
+                <input
+                  id="signup-last"
+                  type="text"
+                  autoComplete="family-name"
+                  placeholder="Lovelace"
+                  aria-invalid={!!errors.lastName}
+                  className={inputClass(errors.lastName)}
+                  {...register('lastName')}
+                />
+                <FieldError id="signup-last-error" message={errors.lastName?.message} />
+              </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
+              <label htmlFor="signup-email" className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
                 Email
               </label>
               <input
+                id="signup-email"
                 type="email"
+                autoComplete="email"
                 placeholder="mail@example.com"
-                className={`w-full bg-[var(--bg-secondary)] border ${errors.emailId ? 'border-neutral-500' : 'border-[var(--border-subtle)] focus:border-neutral-400'
-                  } text-[var(--text-primary)] text-sm rounded-[6px] px-3.5 py-2 placeholder-[var(--text-muted)] focus:outline-none transition-all duration-200`}
+                aria-invalid={!!errors.emailId}
+                aria-describedby={errors.emailId ? "signup-email-error" : undefined}
+                className={inputClass(errors.emailId)}
                 {...register('emailId')}
               />
-              {errors.emailId && (
-                <span className="text-neutral-400 text-xs mt-1 block font-medium">
-                  {errors.emailId.message}
-                </span>
-              )}
+              <FieldError id="signup-email-error" message={errors.emailId?.message} />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
+              <label htmlFor="signup-password" className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
                 Password
               </label>
               <div className="relative">
                 <input
+                  id="signup-password"
                   type={showPassword ? "text" : "password"}
-                  placeholder="••••••••"
-                  className={`w-full bg-[var(--bg-secondary)] border ${errors.password ? 'border-neutral-500' : 'border-[var(--border-subtle)] focus:border-neutral-400'
-                    } text-[var(--text-primary)] text-sm rounded-[6px] px-3.5 py-2 pr-11 placeholder-[var(--text-muted)] focus:outline-none transition-all duration-200`}
+                  autoComplete="new-password"
+                  placeholder="At least 8 characters"
+                  aria-invalid={!!errors.password}
+                  aria-describedby={errors.password ? "signup-password-error" : "signup-password-strength"}
+                  className={`${inputClass(errors.password)} pr-11`}
                   {...register('password')}
                 />
                 <button
                   type="button"
-                  className="absolute top-1/2 right-3.5 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors p-1"
+                  className="absolute top-1/2 right-3 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors p-1"
                   onClick={() => setShowPassword(!showPassword)}
                   aria-label={showPassword ? "Hide password" : "Show password"}
+                  aria-pressed={showPassword}
                 >
-                  {showPassword ? (
-                    <EyeOff className="w-4 h-4" />
-                  ) : (
-                    <Eye className="w-4 h-4" />
-                  )}
+                  {showPassword ? <EyeOff className="w-4 h-4" aria-hidden="true" /> : <Eye className="w-4 h-4" aria-hidden="true" />}
                 </button>
               </div>
-              {errors.password && (
-                <span className="text-neutral-400 text-xs mt-1 block font-medium">
-                  {errors.password.message}
-                </span>
+              {passwordValue && (
+                <div id="signup-password-strength" className="mt-1.5 flex items-center gap-2" aria-live="polite">
+                  <div className="flex-1 h-1 rounded-full bg-[var(--bg-tertiary)] overflow-hidden">
+                    <div className={`h-full ${strengthColor} transition-all`} style={{ width: `${(strength / 4) * 100}%` }} />
+                  </div>
+                  <span className="text-[10px] text-[var(--text-muted)] font-medium w-12 text-right">{strengthLabel}</span>
+                </div>
               )}
+              <FieldError id="signup-password-error" message={errors.password?.message} />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
+              <label htmlFor="signup-confirm" className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
                 Confirm Password
               </label>
               <input
-                type="password"
+                id="signup-confirm"
+                type={showPassword ? "text" : "password"}
+                autoComplete="new-password"
                 placeholder="••••••••"
-                className={`w-full bg-[var(--bg-secondary)] border ${errors.confirmPassword ? 'border-neutral-500' : 'border-[var(--border-subtle)] focus:border-neutral-400'
-                  } text-[var(--text-primary)] text-sm rounded-[6px] px-3.5 py-2 placeholder-[var(--text-muted)] focus:outline-none transition-all duration-200`}
+                aria-invalid={!!errors.confirmPassword}
+                aria-describedby={errors.confirmPassword ? "signup-confirm-error" : undefined}
+                className={inputClass(errors.confirmPassword)}
                 {...register('confirmPassword')}
               />
-              {errors.confirmPassword && (
-                <span className="text-neutral-400 text-xs mt-1 block font-medium">
-                  {errors.confirmPassword.message}
-                </span>
-              )}
+              <FieldError id="signup-confirm-error" message={errors.confirmPassword?.message} />
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-sm py-2.5 rounded-[6px] transition-all duration-200 shadow-md shadow-sky-500/10 active:scale-[0.99] mt-3 flex items-center justify-center gap-2 border-0 cursor-pointer disabled:opacity-50"
+              className="w-full bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-sm py-2.5 rounded-[6px] transition-all duration-200 shadow-md shadow-sky-500/10 active:scale-[0.99] mt-3 flex items-center justify-center gap-2 border-0 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin text-white" />
+                  <Loader2 className="w-4 h-4 animate-spin text-white" aria-hidden="true" />
                   <span>Creating Account...</span>
                 </>
               ) : (
@@ -199,7 +240,7 @@ function Signup() {
             </button>
           </form>
 
-          <div className="relative flex py-4 items-center">
+          <div className="relative flex py-4 items-center" aria-hidden="true">
             <div className="flex-grow border-t border-[var(--border-subtle)]"></div>
             <span className="flex-shrink mx-4 text-xs text-[var(--text-muted)] font-medium">
               Or continue with
@@ -207,32 +248,7 @@ function Signup() {
             <div className="flex-grow border-t border-[var(--border-subtle)]"></div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => handleSocialLogin('Google')}
-              className="bg-[var(--bg-secondary)] border border-[var(--border-subtle)] hover:border-indigo-500/40 hover:bg-indigo-500/5 active:border-indigo-500/40 focus:border-indigo-500/40 focus:outline-none text-[var(--text-primary)] font-medium text-xs py-2 px-3 rounded-[6px] flex items-center justify-center gap-2 transition-all cursor-pointer"
-            >
-              <svg className="w-4 h-4 shrink-0 fill-current text-[var(--text-primary)]" viewBox="0 0 24 24">
-                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
-              </svg>
-              <span>Google</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleSocialLogin('GitHub')}
-              className="bg-[var(--bg-secondary)] border border-[var(--border-subtle)] hover:border-indigo-500/40 hover:bg-indigo-500/5 active:border-indigo-500/40 focus:border-indigo-500/40 focus:outline-none text-[var(--text-primary)] font-medium text-xs py-2 px-3 rounded-[6px] flex items-center justify-center gap-2 transition-all cursor-pointer"
-            >
-              <svg className="w-4 h-4 fill-current shrink-0 text-[var(--text-primary)]" viewBox="0 0 24 24">
-                <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
-              </svg>
-              <span>GitHub</span>
-            </button>
-          </div>
+          <SocialLoginButtons layout="grid" redirectTo={redirectTarget} />
 
           <div className="mt-6 text-center space-y-3">
             <p className="text-[11px] text-[var(--text-muted)] leading-relaxed max-w-xs mx-auto">
@@ -249,14 +265,14 @@ function Signup() {
 
             <div className="pt-1 text-xs text-[var(--text-muted)] font-medium">
               Already have an account?{' '}
-              <NavLink to={window.location.search ? `/login${window.location.search}` : "/login"} className="text-[var(--text-primary)] font-bold underline ml-1">
+              <NavLink to={location.search ? `/login${location.search}` : "/login"} className="text-[var(--text-primary)] font-bold underline ml-1">
                 Login
               </NavLink>
             </div>
           </div>
         </div>
 
-        <div className="lg:col-span-7">
+        <div className="lg:col-span-7 hidden lg:block">
           <AuthRightSection />
         </div>
       </div>

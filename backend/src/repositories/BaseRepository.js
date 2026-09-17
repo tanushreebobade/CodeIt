@@ -1,6 +1,8 @@
 const mongoose = require("mongoose");
 const localDb = require("../config/localDb");
 
+// repositories talk to mongodb when it is connected and transparently fall back
+// to the json file store in backend/data when it is not.
 class BaseRepository {
   constructor(model, entityType = "generic") {
     this.model = model;
@@ -32,10 +34,8 @@ class BaseRepository {
   async findOne(filter, projection = null, options = {}) {
     if (this.isMongoConnected()) {
       try {
-        // If filter has _id, check validity first
-        if (filter && filter._id && !this.isValidObjectId(filter._id)) {
-          // Skip Mongo findOne if _id is not a valid ObjectId
-        } else {
+        // skip mongo when filtering by an _id that cannot be an ObjectId
+        if (!(filter && filter._id && !this.isValidObjectId(filter._id))) {
           return await this.model.findOne(filter, projection, options);
         }
       } catch (err) {
@@ -83,6 +83,8 @@ class BaseRepository {
       try {
         return await this.model.create(data);
       } catch (err) {
+        // validation and duplicate key errors must surface to the caller
+        if (err.name === "ValidationError" || err.code === 11000) throw err;
         console.warn("Mongo create failed, using localDb:", err.message);
       }
     }
@@ -98,10 +100,25 @@ class BaseRepository {
       try {
         return await this.model.findByIdAndUpdate(id, updateData, options);
       } catch (err) {
+        if (err.name === "ValidationError" || err.code === 11000) throw err;
         console.warn("Mongo updateById failed, using localDb:", err.message);
       }
     }
     if (this.entityType === "user") return localDb.updateUser(id, updateData);
+    if (this.entityType === "problem") return localDb.updateProblem(id, updateData);
+    return null;
+  }
+
+  async deleteById(id) {
+    if (this.isMongoConnected() && this.isValidObjectId(id)) {
+      try {
+        return await this.model.findByIdAndDelete(id);
+      } catch (err) {
+        console.warn("Mongo deleteById failed, using localDb:", err.message);
+      }
+    }
+    if (this.entityType === "user") return localDb.deleteUser(id);
+    if (this.entityType === "problem") return localDb.deleteProblem(id);
     return null;
   }
 

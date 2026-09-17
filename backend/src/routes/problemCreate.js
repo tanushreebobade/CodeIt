@@ -2,6 +2,7 @@ const express = require("express");
 const problemRouter = express.Router();
 const adminMiddleware = require("../middleware/adminMiddleware");
 const userMiddleware = require("../middleware/userMiddleware");
+const { optionalAuth } = require("../middleware/authenticate");
 const validate = require("../middleware/validateMiddleware");
 const { createProblemSchema, updateProblemSchema } = require("../validators/problemValidator");
 const {
@@ -21,8 +22,8 @@ problemRouter.delete("/delete/:id", adminMiddleware, deleteProblem);
 problemRouter.delete("/deleteProblem/:id", adminMiddleware, deleteProblem);
 
 problemRouter.get("/getAllProblem", getAllProblem);
-problemRouter.get("/problemById/:id", getProblemById);
-problemRouter.get("/getProblemById/:id", getProblemById);
+problemRouter.get("/problemById/:id", optionalAuth, getProblemById);
+problemRouter.get("/getProblemById/:id", optionalAuth, getProblemById);
 problemRouter.get("/problemSolvedByUser", userMiddleware, solvedAllProblembyUser);
 problemRouter.get("/submittedProblem/:pid", userMiddleware, submittedProblem);
 

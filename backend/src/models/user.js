@@ -7,14 +7,16 @@ const userSchema = new Schema(
     firstName: {
       type: String,
       required: true,
-      minLength: 3,
-      maxLength: 20,
+      trim: true,
+      minLength: 2,
+      maxLength: 50,
     },
 
     lastName: {
       type: String,
-      minLength: 3,
-      maxLength: 20,
+      trim: true,
+      maxLength: 50,
+      default: "",
     },
 
     emailId: {
@@ -29,7 +31,7 @@ const userSchema = new Schema(
     age: {
       type: Number,
       min: 6,
-      max: 80,
+      max: 120,
     },
 
     role: {

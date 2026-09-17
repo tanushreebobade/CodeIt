@@ -3,8 +3,11 @@
 
 <head>
   <meta charset="UTF-8" />
-  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="description" content="CodeIt - practice Data Structures & Algorithms with an in-browser code editor, automated test cases, AI hints and video solutions." />
+  <meta name="theme-color" content="#121212" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#F5F5F5" media="(prefers-color-scheme: light)" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <title>CodeIt - Online Coding Platform</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13,7 +16,8 @@
     (function() {
       try {
         var savedTheme = localStorage.getItem('theme');
-        var theme = savedTheme || 'dark';
+        var prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+        var theme = savedTheme || (prefersLight ? 'light' : 'dark');
         document.documentElement.setAttribute('data-theme', theme);
         if (theme === 'dark') {
           document.documentElement.classList.add('dark');

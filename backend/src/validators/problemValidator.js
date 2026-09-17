@@ -17,7 +17,7 @@ const startCodeSchema = Joi.object({
 
 const referenceSolutionSchema = Joi.object({
   language: Joi.string().valid("cpp", "java", "python", "javascript").required(),
-  completeCode: Joi.string().required(),
+  completeCode: Joi.string().allow("").required(),
 });
 
 const createProblemSchema = Joi.object({
@@ -56,7 +56,7 @@ const createProblemSchema = Joi.object({
     )
     .optional(),
   companyTags: Joi.array().items(Joi.string().trim().lowercase()).optional(),
-  hints: Joi.array().items(Joi.string().trim()).optional(),
+  hints: Joi.array().items(Joi.string().trim().allow("")).optional(),
   editorial: Joi.string().allow("", null).optional(),
   examples: Joi.array().items(testCaseSchema).optional(),
   constraints: Joi.string().allow("", null).optional(),

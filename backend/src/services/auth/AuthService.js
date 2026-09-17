@@ -1,73 +1,61 @@
+const env = require("../../config/env");
 const userRepository = require("../../repositories/UserRepository");
 const validate = require("../../utils/validator");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const redisClient = require("../../config/redis");
-const { BadRequestError, UnauthorizedError } = require("../../errors/AppError");
+const { BadRequestError, UnauthorizedError, ConflictError } = require("../../errors/AppError");
+
+const BCRYPT_ROUNDS = 10;
 
 class AuthService {
+  generateAccessToken(user) {
+    return jwt.sign(
+      { _id: user._id, emailId: user.emailId, role: user.role },
+      env.jwtSecret,
+      { expiresIn: env.accessTokenTtl }
+    );
+  }
+
   generateTokens(user) {
-    const payload = {
-      _id: user._id,
-      emailId: user.emailId,
-      role: user.role,
-    };
-
-    const accessToken = jwt.sign(payload, process.env.JWT_KEY || "codeit_secret_jwt_key_2026_secure", {
-      expiresIn: "15m",
-    });
-
+    const accessToken = this.generateAccessToken(user);
     const refreshToken = jwt.sign(
       { _id: user._id, type: "refresh" },
-      process.env.JWT_KEY || "codeit_secret_jwt_key_2026_secure",
-      { expiresIn: "7d" }
+      env.jwtSecret,
+      { expiresIn: env.refreshTokenTtl }
     );
 
     return { accessToken, refreshToken };
   }
 
-  async registerUser(userData) {
+  async createAccount(userData, role) {
     validate(userData);
-    const { firstName, emailId, password } = userData;
+    const { emailId, password } = userData;
     const normalizedEmail = emailId.trim().toLowerCase();
 
     const existingUser = await userRepository.findUserByEmail(normalizedEmail);
     if (existingUser) {
-      throw new BadRequestError("User with this email already exists.");
+      throw new ConflictError("An account with this email already exists. Please sign in.");
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, BCRYPT_ROUNDS);
     const user = await userRepository.create({
       ...userData,
       emailId: normalizedEmail,
       password: hashedPassword,
-      role: "user",
+      role,
     });
 
     const tokens = this.generateTokens(user);
     return { user, ...tokens };
   }
 
+  async registerUser(userData) {
+    return this.createAccount(userData, "user");
+  }
+
   async registerAdmin(adminData) {
-    validate(adminData);
-    const { emailId, password } = adminData;
-    const normalizedEmail = emailId.trim().toLowerCase();
-
-    const existingUser = await userRepository.findUserByEmail(normalizedEmail);
-    if (existingUser) {
-      throw new BadRequestError("User with this email already exists.");
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const user = await userRepository.create({
-      ...adminData,
-      emailId: normalizedEmail,
-      password: hashedPassword,
-      role: "admin",
-    });
-
-    const tokens = this.generateTokens(user);
-    return { user, ...tokens };
+    return this.createAccount(adminData, "admin");
   }
 
   async loginUser(emailId, password) {
@@ -78,18 +66,23 @@ class AuthService {
     const normalizedEmail = emailId.trim().toLowerCase();
     const user = await userRepository.findUserByEmail(normalizedEmail);
     if (!user) {
-      throw new BadRequestError("User does not exist with this email. Please sign up.");
+      throw new UnauthorizedError("No account found with this email. Please sign up.");
     }
 
     let isMatch = false;
     if (user.password && (user.password.startsWith("$2b$") || user.password.startsWith("$2a$"))) {
       isMatch = await bcrypt.compare(password, user.password);
     } else {
+      // legacy plain-text password: verify and upgrade to a bcrypt hash
       isMatch = user.password === password;
+      if (isMatch) {
+        const hashed = await bcrypt.hash(password, BCRYPT_ROUNDS);
+        await userRepository.updateById(user._id, { password: hashed });
+      }
     }
 
     if (!isMatch) {
-      throw new BadRequestError("Invalid password. Please try again.");
+      throw new UnauthorizedError("Incorrect password. Please try again.");
     }
 
     const tokens = this.generateTokens(user);
@@ -98,30 +91,26 @@ class AuthService {
 
   async refreshAccessToken(refreshToken) {
     if (!refreshToken) {
-      throw new UnauthorizedError("Refresh Token is required");
+      throw new UnauthorizedError("Refresh token is required");
     }
 
+    let decoded;
     try {
-      const decoded = jwt.verify(refreshToken, process.env.JWT_KEY || "codeit_secret_jwt_key_2026_secure");
-      if (decoded.type !== "refresh") {
-        throw new UnauthorizedError("Invalid Refresh Token type");
-      }
-
-      const user = await userRepository.findUserById(decoded._id);
-      if (!user) {
-        throw new UnauthorizedError("User not found");
-      }
-
-      const newAccessToken = jwt.sign(
-        { _id: user._id, emailId: user.emailId, role: user.role },
-        process.env.JWT_KEY || "codeit_secret_jwt_key_2026_secure",
-        { expiresIn: "15m" }
-      );
-
-      return { accessToken: newAccessToken };
+      decoded = jwt.verify(refreshToken, env.jwtSecret);
     } catch (err) {
-      throw new UnauthorizedError("Invalid or expired Refresh Token");
+      throw new UnauthorizedError("Invalid or expired refresh token");
     }
+
+    if (decoded.type !== "refresh") {
+      throw new UnauthorizedError("Invalid refresh token type");
+    }
+
+    const user = await userRepository.findUserById(decoded._id);
+    if (!user) {
+      throw new UnauthorizedError("User not found");
+    }
+
+    return { accessToken: this.generateAccessToken(user), user };
   }
 
   async logoutUser(token) {

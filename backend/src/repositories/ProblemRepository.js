@@ -2,6 +2,10 @@ const BaseRepository = require("./BaseRepository");
 const Problem = require("../models/problem");
 const localDb = require("../config/localDb");
 
+const LIST_FIELDS = "_id title difficulty tags companyTags acceptedCount submissionCount isPremium status createdAt";
+
+const escapeRegex = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 class ProblemRepository extends BaseRepository {
   constructor() {
     super(Problem, "problem");
@@ -9,6 +13,22 @@ class ProblemRepository extends BaseRepository {
 
   async findProblemById(id) {
     return await this.findById(id);
+  }
+
+  // lightweight list of all non-draft problems for the catalog
+  async findAllForCatalog() {
+    if (this.isMongoConnected()) {
+      try {
+        return await this.model
+          .find({ status: { $ne: "draft" } })
+          .select(LIST_FIELDS)
+          .sort({ createdAt: 1 })
+          .lean();
+      } catch (err) {
+        console.warn("Mongo findAllForCatalog failed, using localDb:", err.message);
+      }
+    }
+    return localDb.getProblems().filter((p) => p.status !== "draft");
   }
 
   async findProblemsWithFilters({ difficulty, tags, companyTags, search, page = 1, limit = 10 }) {
@@ -26,16 +46,16 @@ class ProblemRepository extends BaseRepository {
             : companyTags;
           filter.companyTags = { $in: companyArray };
         }
-        if (search) filter.title = { $regex: search, $options: "i" };
+        if (search) filter.title = { $regex: escapeRegex(search), $options: "i" };
 
         const pageNum = Math.max(1, parseInt(page, 10) || 1);
-        const limitNum = Math.max(1, parseInt(limit, 10) || 10);
+        const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 10));
         const skip = (pageNum - 1) * limitNum;
 
         const total = await this.count(filter);
         const problems = await this.model
           .find(filter)
-          .select("_id title difficulty tags companyTags acceptedCount submissionCount isPremium createdAt")
+          .select(LIST_FIELDS)
           .skip(skip)
           .limit(limitNum)
           .sort({ createdAt: -1 });
@@ -65,7 +85,7 @@ class ProblemRepository extends BaseRepository {
     }
 
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
-    const limitNum = Math.max(1, parseInt(limit, 10) || 10);
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 10));
     const skip = (pageNum - 1) * limitNum;
     const paginated = problems.slice(skip, skip + limitNum);
 
@@ -79,7 +99,7 @@ class ProblemRepository extends BaseRepository {
   }
 
   async incrementSubmissionCount(id, isAccepted = false) {
-    if (this.isMongoConnected()) {
+    if (this.isMongoConnected() && this.isValidObjectId(id)) {
       try {
         const inc = { submissionCount: 1 };
         if (isAccepted) inc.acceptedCount = 1;
@@ -93,11 +113,11 @@ class ProblemRepository extends BaseRepository {
       }
     }
     const prob = localDb.findProblemById(id);
-    if (prob) {
-      prob.submissionCount = (prob.submissionCount || 0) + 1;
-      if (isAccepted) prob.acceptedCount = (prob.acceptedCount || 0) + 1;
-    }
-    return prob;
+    if (!prob) return null;
+    return localDb.updateProblem(id, {
+      submissionCount: (prob.submissionCount || 0) + 1,
+      acceptedCount: (prob.acceptedCount || 0) + (isAccepted ? 1 : 0),
+    });
   }
 }
 

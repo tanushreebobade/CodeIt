@@ -4,18 +4,57 @@ const attemptRepository = require("../../repositories/AttemptRepository");
 const problemRepository = require("../../repositories/ProblemRepository");
 const userRepository = require("../../repositories/UserRepository");
 const leaderboardService = require("../leaderboard/LeaderboardService");
+const { EXECUTION_STATUS } = require("../../constants/executionConstants");
 
-const evaluateSubmission = async (code, language, hiddenTestCases) => {
+// normalises program output so trailing whitespace / CRLF differences don't fail a test
+const normalizeOutput = (text) =>
+  String(text ?? "")
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map((line) => line.replace(/\s+$/g, ""))
+    .join("\n")
+    .trim();
+
+// maps an engine result to a verdict; null means the program ran fine
+const classifyFailure = (result) => {
+  const status = result.status;
+  if (status === "compile_error") return EXECUTION_STATUS.COMPILATION_ERROR;
+  if (status === "time_limit" || result.statusCode === 408) return EXECUTION_STATUS.TIME_LIMIT_EXCEEDED;
+  if (status === "runtime_error") return EXECUTION_STATUS.RUNTIME_ERROR;
+  if (status === "engine_error") return EXECUTION_STATUS.RUNTIME_ERROR;
+
+  // engines without a structured status: fall back to output sniffing
+  if (!status) {
+    const text = `${result.output || ""}\n${result.error || ""}`.toLowerCase();
+    if (text.includes("error:") || text.includes("compilation failed") || text.includes("syntaxerror")) {
+      return EXECUTION_STATUS.COMPILATION_ERROR;
+    }
+    if (text.includes("time limit exceeded") || text.includes("execution timed out")) {
+      return EXECUTION_STATUS.TIME_LIMIT_EXCEEDED;
+    }
+    if (
+      text.includes("segmentation fault") ||
+      text.includes("runtime error") ||
+      text.includes("exception") ||
+      text.includes("traceback")
+    ) {
+      return EXECUTION_STATUS.RUNTIME_ERROR;
+    }
+  }
+  return null;
+};
+
+const evaluateSubmission = async (code, language, hiddenTestCases, { userId } = {}) => {
   const results = [];
 
   let passedCount = 0;
-  let status = "Accepted";
+  let status = EXECUTION_STATUS.ACCEPTED;
   let errorMessage = "";
   let maxRuntime = 0;
   let maxMemory = 0;
 
   for (const testCase of hiddenTestCases) {
-    const result = await executeCode(code, language, testCase.input);
+    const result = await executeCode(code, language, testCase.input || "", { userId });
 
     const currentRuntime = Number(result.cpuTime) || 0;
     const currentMemory = Number(result.memory) || 0;
@@ -24,89 +63,29 @@ const evaluateSubmission = async (code, language, hiddenTestCases) => {
     if (currentRuntime > maxRuntime) maxRuntime = currentRuntime;
     if (currentMemory > maxMemory) maxMemory = currentMemory;
 
-    const output = result.output?.trim() || "";
-    const lowerOutput = output.toLowerCase();
+    const output = normalizeOutput(result.output);
+    const expectedOutput = normalizeOutput(testCase.output);
+    const failure = classifyFailure(result);
 
-    // check compilation errors
-    if (
-      lowerOutput.includes("error:") ||
-      lowerOutput.includes("compilation failed") ||
-      lowerOutput.includes("syntaxerror")
-    ) {
-      status = "Compilation Error";
-      errorMessage = output;
-
+    if (failure) {
+      status = failure;
+      errorMessage = result.error || output || failure;
       results.push({
         input: testCase.input,
-        expectedOutput: testCase.output,
+        expectedOutput,
         output,
+        error: result.error || null,
         passed: false,
       });
-
       break;
     }
-
-    // check runtime exceptions
-    if (
-      output.includes("Segmentation fault") ||
-      output.includes("Runtime Error") ||
-      output.includes("Exception") ||
-      output.includes("Traceback") ||
-      output.includes("Floating point exception")
-    ) {
-      status = "Runtime Error";
-      errorMessage = output;
-
-      results.push({
-        input: testCase.input,
-        expectedOutput: testCase.output,
-        output,
-        passed: false,
-      });
-
-      break;
-    }
-
-    // check execution timeouts
-    if (
-      result.statusCode === 408 ||
-      output.includes("Time Limit Exceeded") ||
-      output.includes("Execution Timed Out")
-    ) {
-      status = "Time Limit Exceeded";
-      errorMessage = output;
-
-      results.push({
-        input: testCase.input,
-        expectedOutput: testCase.output,
-        output,
-        passed: false,
-      });
-
-      break;
-    }
-
-    const expectedOutput = testCase.output.trim();
 
     if (output === expectedOutput) {
       passedCount++;
-
-      results.push({
-        input: testCase.input,
-        expectedOutput,
-        output,
-        passed: true,
-      });
+      results.push({ input: testCase.input, expectedOutput, output, passed: true });
     } else {
-      status = "Wrong Answer";
-
-      results.push({
-        input: testCase.input,
-        expectedOutput,
-        output,
-        passed: false,
-      });
-
+      status = EXECUTION_STATUS.WRONG_ANSWER;
+      results.push({ input: testCase.input, expectedOutput, output, passed: false });
       break;
     }
   }
@@ -122,8 +101,8 @@ const evaluateSubmission = async (code, language, hiddenTestCases) => {
 };
 
 const processSubmission = async ({ userId, problemId, code, language, hiddenTestCases }) => {
-  const evalResult = await evaluateSubmission(code, language, hiddenTestCases);
-  const isAccepted = evalResult.status === "Accepted";
+  const evalResult = await evaluateSubmission(code, language, hiddenTestCases, { userId });
+  const isAccepted = evalResult.status === EXECUTION_STATUS.ACCEPTED;
 
   const submission = await submissionRepository.createSubmission({
     userId,
@@ -162,4 +141,6 @@ const processSubmission = async ({ userId, problemId, code, language, hiddenTest
 module.exports = {
   evaluateSubmission,
   processSubmission,
+  normalizeOutput,
+  classifyFailure,
 };
